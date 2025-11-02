@@ -68,8 +68,8 @@ if (!global.__database) {
     // This is crucial for Railway/containerized environments
     db.pragma('journal_mode = WAL'); // Use WAL mode for better concurrency
     db.pragma('synchronous = FULL'); // Force full sync to disk on every write
-    db.pragma('wal_autocheckpoint = 1'); // Checkpoint after every transaction
-    console.log('[Database] Set journal_mode=WAL, synchronous=FULL, wal_autocheckpoint=1 for persistence');
+    db.pragma('wal_autocheckpoint = 0'); // Disable auto-checkpoint, we'll do it manually
+    console.log('[Database] Set journal_mode=WAL, synchronous=FULL, manual checkpointing');
     
     // Verify we can write to the database
     db.prepare('SELECT 1').get();
@@ -141,9 +141,9 @@ export function initializeDatabase() {
 // Helper function to ensure data is synced to disk
 export function syncDatabase() {
   try {
-    // Force a checkpoint to ensure all changes are written to disk
-    const result = db.pragma('wal_checkpoint(RESTART)', { simple: true });
-    console.log('[Database] WAL checkpoint result:', result);
+    // Force a TRUNCATE checkpoint to ensure ALL changes are written to disk and WAL is cleared
+    const result = db.pragma('wal_checkpoint(TRUNCATE)', { simple: true });
+    console.log('[Database] WAL checkpoint (TRUNCATE) result:', result);
     
     // Verify data is actually on disk by counting records
     const staffCount = db.prepare('SELECT COUNT(*) as count FROM staff').get() as { count: number };
