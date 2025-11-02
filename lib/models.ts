@@ -31,7 +31,10 @@ export interface StaffWithAvailability extends Staff {
 // Staff operations
 export const StaffModel = {
   getAll: (): Staff[] => {
-    return db.prepare('SELECT * FROM staff ORDER BY name').all() as Staff[];
+    console.log('[StaffModel] getAll() called');
+    const result = db.prepare('SELECT * FROM staff ORDER BY name').all() as Staff[];
+    console.log(`[StaffModel] getAll() returned ${result.length} staff`);
+    return result;
   },
 
   getById: (id: number): Staff | undefined => {
@@ -39,12 +42,19 @@ export const StaffModel = {
   },
 
   getByName: (name: string): Staff | undefined => {
-    return db.prepare('SELECT * FROM staff WHERE name = ?').get(name) as Staff | undefined;
+    console.log(`[StaffModel] getByName("${name}") called`);
+    const result = db.prepare('SELECT * FROM staff WHERE name = ?').get(name) as Staff | undefined;
+    console.log(`[StaffModel] getByName("${name}") result:`, result ? `found ID ${result.id}` : 'not found');
+    return result;
   },
 
   create: (name: string, phone?: string): Staff => {
+    console.log(`[StaffModel] create("${name}", "${phone}") called`);
     const result = db.prepare('INSERT INTO staff (name, phone) VALUES (?, ?)').run(name, phone || null);
-    return StaffModel.getById(result.lastInsertRowid as number)!;
+    console.log(`[StaffModel] create() INSERT result:`, { changes: result.changes, lastInsertRowid: result.lastInsertRowid });
+    const created = StaffModel.getById(result.lastInsertRowid as number)!;
+    console.log(`[StaffModel] create() verification:`, created);
+    return created;
   },
 
   update: (id: number, name: string, phone?: string): Staff => {

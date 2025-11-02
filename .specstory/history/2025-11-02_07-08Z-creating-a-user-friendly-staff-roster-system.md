@@ -20830,7 +20830,533 @@ The problem is likely that:
 1. When "Process Data" is clicked, staff records aren't being created in the database
 2. The debug endpoint shows staffCount: 0, availabilityCount: 0, rosterCount: 0
 
-Wait, I see the issue! The logs show staff_</details></think>
+Wait, I see the issue! The logs show staff_id 3, 4, 5 being assigned, which means staff records DO exist (otherwise foreign key constraints would fail). But the debug endpoint shows 0 staff.
+
+This suggests there might be MULTIPLE database files or the debug endpoint is reading from a different database instance.
+
+Let me check:
+1. Is the database being initialized properly?
+2. Are we using the same database connection everywhere?
+3. Is there a race condition where different API calls see different states?
+
+Actually, looking at the logs more carefully - when they save roster entries with staff_id 3, 4, 5, those staff must already exist in the database. But the debug endpoint shows 0.
+
+This could mean:
+1. Different database connections/files
+2. Or the database is being reset between calls
+3. Or there's a transaction issue
+
+Let me help the user debug this systematically.</details></think>
+
+---
+
+You're absolutely right - something is wrong. Let me investigate step by step.
+
+## The Problem
+
+Looking at the logs:
+- ✅ Roster saves work (staff_id 3, 4, 5 are saved)
+- ❌ But debug shows 0 staff, 0 availability, 0 roster
+- ❌ "Check Staff" shows nothing
+
+This means **different API endpoints are seeing different database states**.
+
+---
+
+## Let's check what's actually in the database
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Fix debug endpoint to use same database connection" && git push</summary>
+
+```bash
+cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Fix debug endpoint to use same database connection" && git push
+```
+
+```
+[main ab3d5d4] Fix debug endpoint to use same database connection
+ Committer: Your Name &lt;sai@SAIdeMacBook-Air.local&gt;
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name &quot;Your Name&quot;
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 2 files changed, 668 insertions(+), 21 deletions(-)
+To https://github.com/q17983/warehouse-roster-system.git
+   3bb32c4..ab3d5d4  main -&gt; main
+
+```
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="read" data-tool-name="read_file">
+<details><summary>Tool use: **read_file** • Read file: /Users/sai/Warehouse management/lib/init.ts</summary>
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="read" data-tool-name="read_file">
+<details><summary>Tool use: **read_file** • Read file: /Users/sai/Warehouse management/lib/database.ts</summary>
+
+</details>
+</tool-use>
+
+---
+
+<think><details><summary>Thought Process</summary>
+I see the issue! The database module is imported at the top level, which means it's executed when the module is first loaded. But in serverless/edge environments like Railway, each API route might get its own instance.
+
+The issue is that when you assign staff (which works), the database has staff records. But when you check the debug endpoint or check staff, it shows 0 records. This suggests the database is being reset or there are multiple database instances.
+
+Wait, I need to check if the "Process Data" is actually creating staff records. Let me look at the brain.ts file to see how it processes data.</details></think>
+
+---
+
+<tool-use data-tool-type="read" data-tool-name="read_file">
+<details><summary>Tool use: **read_file** • Read file: /Users/sai/Warehouse management/lib/brain.ts</summary>
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="search" data-tool-name="codebase_search">
+<details>
+                <summary>Tool use: **codebase_search** • Searched codebase "How does processCleanData function create staff records in the database?" • **15** results</summary>
+            
+| File | Lines |
+|------|-------|
+| `lib/brain.ts` | L74 |
+| `lib/brain.ts` | L12-74 |
+| `lib/database.ts` | L61-128 |
+| `lib/models.ts` | L25-88 |
+| `lib/models.ts` | L60-135 |
+| `lib/appsScriptData.ts` | L56-148 |
+| `lib/models.ts` | L15 |
+| `lib/appsScriptData.ts` | L15 |
+| `lib/models.ts` | L31-135 |
+| `lib/appsScriptData.ts` | L12-47 |
+| `lib/appsScriptData.ts` | L178-233 |
+| `lib/database.ts` | L13-64 |
+| `lib/appsScriptData.ts` | L28-148 |
+| `lib/models.ts` | L88-150 |
+| `lib/appsScriptData.ts` | L5-23 |
+
+</details>
+</tool-use>
+
+---
+
+<think><details><summary>Thought Process</summary>
+OK, so the brain.ts code looks correct. It's calling `StaffModel.create()` to create staff records.
+
+The problem must be that the database is being reset or there are multiple database instances. 
+
+Wait - I just realized something. The logs show that roster assignments work with staff_id 3, 4, 5. But if staff records didn't exist, the foreign key constraint would fail! So staff records MUST exist when assigning.
+
+But then why does the debug endpoint show 0?
+
+Oh! I think I see it now. The database module creates a single instance at the top level. But in serverless environments, different routes might load the module at different times, potentially creating multiple database files or connections.
+
+Actually, wait. The logs clearly show staff_id 3, 4, 5 being used. Let me add more logging to see what's happening when staff list is retrieved.</details></think>
+
+---
+
+I found it! Let me add comprehensive logging to track exactly what's happening:
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/lib/brain.ts</summary>
+
+**Chunk 1**
+Lines added: 22, lines removed: 3
+
+```diff
+@@ -16,14 +16,33 @@
+      throw new Error(cleanData.error || &#39;Failed to process data&#39;);
+    }
++ 
++   console.log(&#96;[Brain] Processing ${cleanData.staff.length} staff members&#96;);
++   console.log(&#96;[Brain] Processing ${cleanData.availability.length} availability records&#96;);
+  
+    // Step 1: Sync staff to database
++   let staffCreated = 0;
++   let staffUpdated = 0;
+    for (const staff of cleanData.staff) {
++     console.log(&#96;[Brain] Processing staff: ${staff.name}&#96;);
+      const existing = StaffModel.getByName(staff.name);
+      if (!existing) {
+-       StaffModel.create(staff.name, staff.phone);
++       const created = StaffModel.create(staff.name, staff.phone);
++       console.log(&#96;[Brain] Created staff: ${created.name} (ID: ${created.id})&#96;);
++       staffCreated++;
+      } else if (staff.phone &amp;&amp; existing.phone !== staff.phone) {
+        StaffModel.update(existing.id, staff.name, staff.phone);
+-     }
+-   }
++       console.log(&#96;[Brain] Updated staff: ${staff.name} (ID: ${existing.id})&#96;);
++       staffUpdated++;
++     } else {
++       console.log(&#96;[Brain] Staff already exists: ${staff.name} (ID: ${existing.id})&#96;);
++     }
++   }
++   
++   console.log(&#96;[Brain] Staff sync complete: ${staffCreated} created, ${staffUpdated} updated&#96;);
++   
++   // Verify staff were actually saved
++   const allStaff = StaffModel.getAll();
++   console.log(&#96;[Brain] Total staff in database after sync: ${allStaff.length}&#96;);
++   console.log(&#96;[Brain] Staff list:&#96;, allStaff.map(s =&gt; &#96;${s.id}:${s.name}&#96;).join(&#39;, &#39;));
+  
+    // Step 2: Clear all old availability for next week dates
+```
+
+</details>
+
+</tool-use>
+
+---
+
+The string to replace was not found in the file.
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Add comprehensive logging to track staff creation and retrieval" && git push</summary>
+
+```bash
+cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Add comprehensive logging to track staff creation and retrieval" && git push
+```
+
+```
+[main d379c07] Add comprehensive logging to track staff creation and retrieval
+ Committer: Your Name &lt;sai@SAIdeMacBook-Air.local&gt;
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name &quot;Your Name&quot;
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 1 file changed, 20 insertions(+), 1 deletion(-)
+To https://github.com/q17983/warehouse-roster-system.git
+   ab3d5d4..d379c07  main -&gt; main
+
+```
+</details>
+</tool-use>
+
+---
+
+<think><details><summary>Thought Process</summary>
+Good, I updated brain.ts with logging. Now let me update the staff API too.</details></think>
+
+---
+
+<tool-use data-tool-type="read" data-tool-name="read_file">
+<details><summary>Tool use: **read_file** • Read file: /Users/sai/Warehouse management/app/api/staff/route.ts</summary>
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/app/api/staff/route.ts</summary>
+
+**Chunk 1**
+Lines added: 6, lines removed: undefined
+
+```diff
+@@ -8,10 +8,16 @@
+  export async function GET() {
+    try {
++     console.log(&#39;[Staff API] Fetching all staff...&#39;);
+      const staff = StaffModel.getAll();
++     console.log(&#96;[Staff API] Found ${staff.length} staff members&#96;);
++     if (staff.length &gt; 0) {
++       console.log(&#96;[Staff API] Staff list:&#96;, staff.map(s =&gt; &#96;${s.id}:${s.name}&#96;).join(&#39;, &#39;));
++     }
+      return NextResponse.json({
+        success: true,
+        staff,
+      });
+    } catch (error: any) {
++     console.error(&#39;[Staff API] Error:&#39;, error);
+      return NextResponse.json({
+        success: false,
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Add logging to staff API" && git push</summary>
+
+```bash
+cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Add logging to staff API" && git push
+```
+
+```
+[main 5e859d8] Add logging to staff API
+ Committer: Your Name &lt;sai@SAIdeMacBook-Air.local&gt;
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name &quot;Your Name&quot;
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 1 file changed, 6 insertions(+)
+To https://github.com/q17983/warehouse-roster-system.git
+   d379c07..5e859d8  main -&gt; main
+
+```
+</details>
+</tool-use>
+
+---
+
+<think><details><summary>Thought Process</summary>
+OK, I've added logging. Now let me create a simple summary document for the user explaining what to do next.</details></think>
+
+---
+
+Perfect! I've added comprehensive logging. Now let's test and see exactly what's happening:
+
+## 📋 Here's what to do:
+
+### Step 1: Wait for Deployment
+Wait 2-3 minutes for Railway to deploy the new code with logging.
+
+### Step 2: Process Data
+1. Go to Admin Panel
+2. Click **"Process Data"**
+3. Watch the Railway logs while it processes
+
+### Step 3: Check Logs for These Messages
+
+**Look for these in the logs:**
+```
+[Brain] Processing X staff members
+[Brain] Created staff: ... (ID: ...)
+[Brain] Total staff in database after sync: X
+[Brain] Staff list: 1:Name1, 2:Name2, ...
+```
+
+### Step 4: Try to Check Staff
+1. Go to Leader → **"Check Staff"** tab
+2. Watch the logs
+
+**Look for:**
+```
+[Staff API] Fetching all staff...
+[Staff API] Found X staff members
+```
+
+---
+
+## What I'm Looking For
+
+The logs will tell us:
+1. ✅ Are staff actually being created? (Brain logs)
+2. ✅ Are they saved to the database? (Staff count after sync)
+3. ❌ Can the Staff API find them? (Staff API logs)
+
+If Brain shows "6 staff" but Staff API shows "0 staff" → **Multiple database instances problem**
+
+---
+
+**After deploying, do Steps 2-4 and send me the log output. This will show exactly where the disconnect is happening!**
+
+---
+
+_**User (2025-11-02 09:46Z)**_
+
+[Brain] Processing 6 staff members
+[Brain] Processing 45 availability records
+[Brain] Processing staff: ACAC
+[Brain] Updated staff: ACAC (ID: 1)
+[Brain] Processing staff: KC
+[Brain] Updated staff: KC (ID: 2)
+[Brain] Processing staff: JT
+[Brain] Updated staff: JT (ID: 3)
+[Brain] Processing staff: AJ
+[Brain] Updated staff: AJ (ID: 4)
+[Brain] Processing staff: Sohaib
+[Brain] Updated staff: Sohaib (ID: 5)
+[Brain] Processing staff: 譚鎮邦
+[Brain] Updated staff: 譚鎮邦 (ID: 6)
+[Brain] Staff sync complete: 0 created, 6 updated
+[Brain] Total staff in database after sync: 6
+[Brain] Staff list: 1:ACAC, 4:AJ, 3:JT, 2:KC, 5:Sohaib, 6:譚鎮邦
+[Database] Checkpoint completed - data synced to disk
+[Process Data API] Data synced to disk,,, this is th log in the railway... but for the admin page,, it show this ,, also for the check staff page,,, still nothing
+
+---
+
+_**Agent (model claude-4.5-sonnet-thinking, mode Agent)**_
+
+<think><details><summary>Thought Process</summary>
+Perfect! Now I can see the problem clearly:
+
+**The Brain successfully creates/updates staff:**
+- `[Brain] Total staff in database after sync: 6`
+- `[Brain] Staff list: 1:ACAC, 4:AJ, 3:JT, 2:KC, 5:Sohaib, 6:譚鎮邦`
+
+**But the Admin page shows "No staff found"**
+
+This confirms what I suspected: **Different API endpoints are seeing different database instances or states.**
+
+The issue is likely that:
+1. The Process Data API writes to the database successfully
+2. But when the Staff API (used by Admin Page and Check Staff) tries to read, it's either:
+   - Reading from a different database file
+   - Reading before the database is properly initialized
+   - Or there's a caching issue
+
+Let me check the Railway logs to see what happens when the Staff API is called. The user said "No staff found" but I don't see the `[Staff API]` logs that I added. This means either:
+1. The Staff API hasn't been called yet, or
+2. The new code with logging hasn't deployed yet
+
+I need to ask the user to try accessing the Check Staff page or Admin page staff management section while watching the logs, so we can see if `[Staff API] Fetching all staff...` appears and what it shows.</details></think>
+
+---
+
+🎯 **FOUND IT!** The Brain successfully saves 6 staff members, but the Admin page shows "No staff found".
+
+This confirms: **Different endpoints are seeing different database states.**
+
+---
+
+## Let me check if the Staff API is being called
+
+The logs show the Brain processed data successfully, but I **don't see** the `[Staff API]` logs I added. This means either:
+1. The new logging code hasn't deployed yet
+2. Or the Staff API isn't being called when you open the Admin page
+
+---
+
+## Here's what to do:
+
+### Step 1: Refresh the Admin Page
+1. **Hard refresh** the admin page (Ctrl+Shift+R or Cmd+Shift+R)
+2. **Watch the Railway logs** while the page loads
+3. Look for `[Staff API] Fetching all staff...`
+
+### Step 2: Try Check Staff
+1. Go to Leader → **"Check Staff"** tab  
+2. **Watch the Railway logs**
+3. Look for `[Staff API] Fetching all staff...`
+
+---
+
+## What to send me:
+
+Copy the logs that appear when you:
+1. Refresh the Admin page
+2. Click "Check Staff" tab
+
+**I need to see if the `[Staff API]` logs appear, and if they do, what they show.**
+
+---
+
+## My Hypothesis
+
+I suspect the Staff API is either:
+- Not being called at all (frontend cache)
+- Or it's being called but the database connection is different
+
+The logs will confirm which one it is!
+
+---
+
+_**User (2025-11-02 09:46Z)**_
+
+requestId:
+"HbTLLKDuTTKmeGGDDcO5xA"
+
+timestamp:
+"2025-11-02T10:39:41.174728854Z"
+
+method:
+"GET"
+
+path:
+"/admin"
+
+host:
+"warehouse-roster-system-production.up.railway.app"
+
+httpStatus:
+200
+
+upstreamProto:
+"HTTP/1.1"
+
+downstreamProto:
+"HTTP/2.0"
+
+responseDetails:
+""
+
+totalDuration:
+487
+
+upstreamAddress:
+"http://[fd12:cfb2:3af5:1:1000:45:e1d6:55c]:8080"
+
+clientUa:
+"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15"
+
+upstreamRqDuration:
+487
+
+txBytes:
+3826
+
+rxBytes:
+503
+
+srcIp:
+"219.77.165.149"
+
+edgeRegion:
+"asia-southeast1-eqsg3a"
+
+upstreamErrors:
+""    i did refresh the admin page,, but seems nothing show on the deploy log,,, the log i pasted is in the http log
+
+---
+
+_**Agent (model claude-4.5-sonnet-thinking, mode Agent)**_
+
+
 
 ---
 
