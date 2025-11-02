@@ -124,7 +124,8 @@ The application will be available at `http://localhost:3000`
 │   ├── database.ts       # Database setup
 │   ├── models.ts         # Data models
 │   ├── brain.ts          # Data processing logic
-│   ├── googleSheets.ts   # Google Sheets integration
+│   ├── appsScriptData.ts # Apps Script data fetching
+│   ├── weekUtils.ts      # Week-based date utilities
 │   └── init.ts           # Database initialization
 └── package.json
 ```
