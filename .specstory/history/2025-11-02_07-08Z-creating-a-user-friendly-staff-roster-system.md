@@ -22411,39 +22411,251 @@ The latest commit `764fc2b` should be deployed. But let me create a diagnostic e
 
 ---
 
-<tool-use data-tool-type="unknown" data-tool-name="write">
-<details>
-<summary>Tool use: **write**</summary>
+<tool-use data-tool-type="write" data-tool-name="write">
 
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/app/api/debug/connection/route.ts</summary>
 
-Parameters:
+**Chunk 1**
+Lines added: 49, lines removed: 1
 
-```json
-{
-  &quot;relativeWorkspacePath&quot;: &quot;/Users/sai/Warehouse management/app/api/debug/connection/route.ts&quot;,
-  &quot;code&quot;: {
-    &quot;code&quot;: &quot;import { NextResponse } from &#39;next/server&#39;;&quot;
-  }
-}
+```diff
+@@ -1,1 +1,49 @@
+- 
++ import { NextResponse } from &#39;next/server&#39;;
++ import &#39;@/lib/init&#39;;
++ import db from &#39;@/lib/database&#39;;
++ 
++ /**
++  * Debug endpoint to check database connection state
++  */
++ export async function GET() {
++   try {
++     console.log(&#39;[Debug Connection] Checking database state...&#39;);
++     
++     // Check if global database exists
++     const hasGlobal = !!(global as any).__database;
++     console.log(&#39;[Debug Connection] Global database exists:&#39;, hasGlobal);
++     
++     // Try to query staff directly
++     const staffResult = db.prepare(&#39;SELECT COUNT(*) as count FROM staff&#39;).get() as { count: number };
++     console.log(&#39;[Debug Connection] Direct staff count:&#39;, staffResult.count);
++     
++     // Get actual staff records
++     const staffRecords = db.prepare(&#39;SELECT * FROM staff&#39;).all();
++     console.log(&#39;[Debug Connection] Staff records:&#39;, staffRecords);
++     
++     // Check roster
++     const rosterResult = db.prepare(&#39;SELECT COUNT(*) as count FROM roster&#39;).get() as { count: number };
++     console.log(&#39;[Debug Connection] Roster count:&#39;, rosterResult.count);
++     
++     // Check database path
++     const dbPath = process.env.DATABASE_PATH || &#39;not set&#39;;
++     
++     return NextResponse.json({
++       success: true,
++       hasGlobalDatabase: hasGlobal,
++       directStaffCount: staffResult.count,
++       staffRecords: staffRecords,
++       rosterCount: rosterResult.count,
++       databasePath: dbPath,
++       nodeEnv: process.env.NODE_ENV,
++     });
++   } catch (error: any) {
++     console.error(&#39;[Debug Connection] Error:&#39;, error);
++     return NextResponse.json({
++       success: false,
++       error: error.message,
++       stack: error.stack,
++     }, { status: 500 });
++   }
++ }
++ 
 ```
-Additional data:
 
-```json
-{
-  &quot;codeblockId&quot;: &quot;601ffadb-b21b-4d74-ab87-e3574c029302&quot;
-}
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Add connection debug endpoint to diagnose Railway issue" && git push</summary>
+
+```bash
+cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Add connection debug endpoint to diagnose Railway issue" && git push
 ```
-User decision: **accepted**
 
-Status: **loading**
+```
+[main e8a210c] Add connection debug endpoint to diagnose Railway issue
+ Committer: Your Name &lt;sai@SAIdeMacBook-Air.local&gt;
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
 
+    git config --global user.name &quot;Your Name&quot;
+    git config --global user.email you@example.com
 
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 2 files changed, 1014 insertions(+), 1 deletion(-)
+ create mode 100644 app/api/debug/connection/route.ts
+To https://github.com/q17983/warehouse-roster-system.git
+   764fc2b..e8a210c  main -&gt; main
+
+```
 </details>
 </tool-use>
 
 ---
 
+<think><details><summary>Thought Process</summary>
+Good, I've created a diagnostic endpoint. Now I need to wait for it to deploy and then have the user test it. But let me also think about what else could be different.
 
+Actually, I should also check if Next.js is doing something different in production mode. In production, Next.js might be doing more aggressive code splitting or module caching.
+
+Let me also write clear instructions for what to check.</details></think>
+
+---
+
+Perfect! I've created a diagnostic endpoint. After this deploys to Railway (~2 minutes), do these tests:
+
+## 🧪 Diagnostic Tests
+
+### Test 1: On Railway (after deployment)
+
+**A. Process Data First:**
+1. Go to: `https://warehouse-roster-system-production.up.railway.app/admin`
+2. Click **"Process Data"**
+3. Watch Railway logs - confirm you see:
+   ```
+   [Brain] Total staff in database after sync: 6
+   ```
+
+**B. Check Connection State:**
+Visit: `https://warehouse-roster-system-production.up.railway.app/api/debug/connection`
+
+**Copy the entire JSON response** and send it to me.
+
+**C. Check Regular Staff API:**
+Visit: `https://warehouse-roster-system-production.up.railway.app/api/staff`
+
+**Copy the JSON** and send it to me.
+
+**D. Watch Railway Logs:**
+Look for these specific lines when you visit the APIs:
+```
+[Debug Connection] Checking database state...
+[Debug Connection] Global database exists: true/false
+[Debug Connection] Direct staff count: X
+```
+
+And:
+```
+[Staff API] Fetching all staff...
+[StaffModel] getAll() returned X staff
+```
+
+---
+
+### Test 2: On Local (for comparison)
+
+**Visit locally:**
+- `http://localhost:3000/api/debug/connection`
+- `http://localhost:3000/api/staff`
+
+**Copy both JSON responses**
+
+---
+
+## What I'm Looking For
+
+The debug endpoint will tell us:
+1. ✅ Is the global singleton working?
+2. ✅ Can we query staff directly from the database?
+3. ✅ Are staff actually in the database on Railway?
+4. ✅ Is it the same database instance?
+
+**After deployment completes, run the tests and send me all the JSON responses + relevant Railway logs!**
+
+---
+
+_**User (2025-11-02 09:46Z)**_
+
+1) the railyway log shows [Brain] Staff sync complete: 0 created, 6 updated
+[StaffModel] getAll() called
+[StaffModel] getAll() returned 6 staff
+[Brain] Total staff in database after sync: 6.    2) the JSON showing {"success":true,"hasGlobalDatabase":true,"directStaffCount":0,"staffRecords":[],"rosterCount":0,"databasePath":"/data/roster.db","nodeEnv":"production"},,,,,, after i press the api/staff link,, icant see any update in railway deploy log.... the last log is [StaffModel] getByName("譚鎮邦") result: found ID 6
+[StaffModel] getByName("譚鎮邦") called
+[StaffModel] getByName("譚鎮邦") result: found ID 6
+[StaffModel] getByName("譚鎮邦") called
+[StaffModel] getByName("譚鎮邦") result: found ID 6
+[StaffModel] getByName("ACAC") called
+[StaffModel] getByName("ACAC") result: found ID 1
+[StaffModel] getByName("KC") called
+[StaffModel] getByName("KC") result: found ID 2
+[StaffModel] getByName("JT") called
+[StaffModel] getByName("JT") result: found ID 3
+[StaffModel] getByName("AJ") called
+[StaffModel] getByName("AJ") result: found ID 4
+[StaffModel] getByName("Sohaib") called
+[StaffModel] getByName("Sohaib") result: found ID 5
+[StaffModel] getByName("譚鎮邦") called
+[StaffModel] getByName("譚鎮邦") result: found ID 6
+[Database] Checkpoint completed - data synced to disk
+[Process Data API] Data synced to disk
+
+---
+
+_**Agent (model claude-4.5-sonnet-thinking, mode Agent)**_
+
+<think><details><summary>Thought Process</summary>
+This is the smoking gun! Look at what's happening:
+
+1. Brain processes data and says: "Total staff in database after sync: 6"
+2. But `/api/debug/connection` shows: `"directStaffCount":0,"staffRecords":[]`
+
+This means:
+- During the Process Data API call, the Brain creates 6 staff
+- Those staff ARE found by `getByName()` during that same API call
+- But when a DIFFERENT API call (`/api/debug/connection`) queries the database, it finds 0 staff
+
+This confirms that **data is NOT persisting between API calls** even though we're using a global singleton.
+
+The issue is that in Next.js serverless environments (especially on Railway), each API route might run in a **separate Lambda/container instance**, and they don't share the same Node.js process, so `global.__database` isn't shared.
+
+But more critically: the data isn't even persisting to disk! The Brain writes to the database, syncs to disk, but when another API call queries the same file, it's empty.
+
+This suggests:
+1. The database writes aren't actually going to disk (despite the sync call)
+2. OR different API calls are somehow using different database files
+3. OR there's a permission/locking issue preventing reads from seeing writes
+
+Let me check if there are multiple database instances being created.</details></think>
+
+---
+
+🎯 **FOUND IT!**
+
+This is the critical evidence:
+
+1. **Brain says:** "6 staff in database"
+2. **Debug endpoint says:** `"directStaffCount":0` 
+
+**They're both querying the SAME database file (`/data/roster.db`) but seeing DIFFERENT data!**
+
+This means: **Data is NOT being written to disk, only to memory!**
+
+---
+
+## The Problem
+
+Even though we call `syncDatabase()` and use `synchronous=FULL`, the data isn't persisting to the actual file. Each API call creates a new in-memory view.
+
+## The Solution
+
+SQLite's `journal_mode=DELETE` and `synchronous=FULL` aren't working as expected. We need to **force a WAL checkpoint after EVERY write
 
 ---
 

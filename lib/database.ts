@@ -58,14 +58,18 @@ if (!global.__database) {
       console.error(`[Database] Directory permission error:`, dirError);
     }
     
-    db = new Database(dbPath);
+    db = new Database(dbPath, { 
+      verbose: console.log,
+      fileMustExist: false,
+    });
     console.log('[Database] Database opened successfully');
     
     // CRITICAL: Ensure writes are synced to disk immediately
     // This is crucial for Railway/containerized environments
-    db.pragma('journal_mode = DELETE'); // Use DELETE mode instead of WAL for better persistence
+    db.pragma('journal_mode = WAL'); // Use WAL mode for better concurrency
     db.pragma('synchronous = FULL'); // Force full sync to disk on every write
-    console.log('[Database] Set journal_mode=DELETE, synchronous=FULL for persistence');
+    db.pragma('wal_autocheckpoint = 1'); // Checkpoint after every transaction
+    console.log('[Database] Set journal_mode=WAL, synchronous=FULL, wal_autocheckpoint=1 for persistence');
     
     // Verify we can write to the database
     db.prepare('SELECT 1').get();
@@ -138,10 +142,15 @@ export function initializeDatabase() {
 export function syncDatabase() {
   try {
     // Force a checkpoint to ensure all changes are written to disk
-    db.pragma('wal_checkpoint(TRUNCATE)');
-    console.log('[Database] Checkpoint completed - data synced to disk');
+    const result = db.pragma('wal_checkpoint(RESTART)', { simple: true });
+    console.log('[Database] WAL checkpoint result:', result);
+    
+    // Verify data is actually on disk by counting records
+    const staffCount = db.prepare('SELECT COUNT(*) as count FROM staff').get() as { count: number };
+    const rosterCount = db.prepare('SELECT COUNT(*) as count FROM roster').get() as { count: number };
+    console.log('[Database] After checkpoint - staff:', staffCount.count, 'roster:', rosterCount.count);
   } catch (error) {
-    console.warn('[Database] Checkpoint warning (might not be in WAL mode):', error);
+    console.error('[Database] Checkpoint error:', error);
   }
 }
 
