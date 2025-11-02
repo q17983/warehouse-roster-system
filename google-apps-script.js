@@ -117,20 +117,42 @@ function processRows(headers, rows) {
     
     // Process availability columns - only if this is the first time we see this staff
     if (!availabilityMap.has(name)) {
-      const staffDates = new Set();
+      // Map to track all responses for each date (handles duplicate columns)
+      const dateColumnMap = new Map(); // date -> array of column indices
       
+      // Step 1: Group columns by their date
       headers.forEach((header, colIndex) => {
         if (header.toString().toLowerCase().includes('available') || 
             header.toString().includes('可以返')) {
-          const value = row[colIndex] || '';
-          if (value && (value.toString().toLowerCase().includes('available') || 
-                        value.toString().includes('可以'))) {
-            // Extract date from header
-            const date = extractDateFromHeader(header.toString());
-            if (date) {
-              staffDates.add(date);
+          const date = extractDateFromHeader(header.toString());
+          if (date) {
+            if (!dateColumnMap.has(date)) {
+              dateColumnMap.set(date, []);
             }
+            dateColumnMap.get(date).push(colIndex);
           }
+        }
+      });
+      
+      // Step 2: For each unique date, check ALL columns (handles duplicates)
+      const staffDates = new Set();
+      
+      dateColumnMap.forEach((columnIndices, date) => {
+        // Check if available in ANY of the columns for this date
+        let isAvailable = false;
+        
+        for (const colIndex of columnIndices) {
+          const value = row[colIndex] || '';
+          const valueStr = value.toString().toLowerCase();
+          
+          if (value && (valueStr.includes('available') || valueStr.includes('可以'))) {
+            isAvailable = true;
+            break; // Found available, no need to check other duplicate columns
+          }
+        }
+        
+        if (isAvailable) {
+          staffDates.add(date);
         }
       });
       
