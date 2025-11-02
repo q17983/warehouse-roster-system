@@ -16,15 +16,34 @@ export async function processCleanData(cleanData: CleanDataResponse): Promise<{ 
     throw new Error(cleanData.error || 'Failed to process data');
   }
 
+  console.log(`[Brain] Processing ${cleanData.staff.length} staff members`);
+  console.log(`[Brain] Processing ${cleanData.availability.length} availability records`);
+
   // Step 1: Sync staff to database
+  let staffCreated = 0;
+  let staffUpdated = 0;
   for (const staff of cleanData.staff) {
+    console.log(`[Brain] Processing staff: ${staff.name}`);
     const existing = StaffModel.getByName(staff.name);
     if (!existing) {
-      StaffModel.create(staff.name, staff.phone);
+      const created = StaffModel.create(staff.name, staff.phone);
+      console.log(`[Brain] Created staff: ${created.name} (ID: ${created.id})`);
+      staffCreated++;
     } else if (staff.phone && existing.phone !== staff.phone) {
       StaffModel.update(existing.id, staff.name, staff.phone);
+      console.log(`[Brain] Updated staff: ${staff.name} (ID: ${existing.id})`);
+      staffUpdated++;
+    } else {
+      console.log(`[Brain] Staff already exists: ${staff.name} (ID: ${existing.id})`);
     }
   }
+  
+  console.log(`[Brain] Staff sync complete: ${staffCreated} created, ${staffUpdated} updated`);
+  
+  // Verify staff were actually saved
+  const allStaff = StaffModel.getAll();
+  console.log(`[Brain] Total staff in database after sync: ${allStaff.length}`);
+  console.log(`[Brain] Staff list:`, allStaff.map(s => `${s.id}:${s.name}`).join(', '));
 
   // Step 2: Clear all old availability for next week dates
   // This ensures we only have the latest responses (replace, not merge)
