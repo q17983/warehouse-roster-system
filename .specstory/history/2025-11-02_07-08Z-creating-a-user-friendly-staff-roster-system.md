@@ -23224,7 +23224,329 @@ So the Roster API WAS finding staff! But now when we check, everything is 0.
 This suggests that either:
 1. The data was never actually written to disk (only in memory during that session)
 2. The database file is being reset/cleared between deployments
-3. Railway is creating multiple database</details></think>
+3. Railway is creating multiple database files in different locations
+
+Wait - I notice the user said they processed data and THEN the roster API found staff. But now when they check the debug endpoint, it's all zeros again.
+
+This could mean:
+- The data from processing isn't persisting
+- Each new deployment creates a fresh database
+- The volume isn't actually persisting data
+
+Let me check if the database file is actually being created and persisting on the volume.</details></think>
+
+---
+
+🚨 **CRITICAL REALIZATION**
+
+All counts are **ZERO** - even roster! But earlier logs showed roster data existed (2, 3, 4 staff for different dates).
+
+**This means: The database is being WIPED or RESET between requests!**
+
+Either:
+1. Each deployment creates a **new empty database file**
+2. The volume **isn't actually mounted correctly**
+3. Railway is **deleting the database file** on redeploy
+
+Let me check if the database file actually exists and persists:
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="write">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/app/api/debug/filesystem/route.ts</summary>
+
+**Chunk 1**
+Lines added: 98, lines removed: 1
+
+```diff
+@@ -1,1 +1,98 @@
+- 
++ import { NextResponse } from &#39;next/server&#39;;
++ import fs from &#39;fs&#39;;
++ import path from &#39;path&#39;;
++ 
++ /**
++  * Check filesystem state - verify volume is actually working
++  */
++ export async function GET() {
++   try {
++     const results: any = {
++       dataDirectory: {},
++       databaseFile: {},
++       testWrite: {},
++     };
++     
++     // Check /data directory
++     try {
++       const dataDir = &#39;/data&#39;;
++       results.dataDirectory.exists = fs.existsSync(dataDir);
++       
++       if (results.dataDirectory.exists) {
++         const files = fs.readdirSync(dataDir);
++         results.dataDirectory.files = files;
++         results.dataDirectory.fileCount = files.length;
++         
++         // Get details of each file
++         results.dataDirectory.fileDetails = files.map(file =&gt; {
++           const filePath = path.join(dataDir, file);
++           const stats = fs.statSync(filePath);
++           return {
++             name: file,
++             size: stats.size,
++             modified: stats.mtime,
++             isFile: stats.isFile(),
++           };
++         });
++       }
++     } catch (error: any) {
++       results.dataDirectory.error = error.message;
++     }
++     
++     // Check database file specifically
++     try {
++       const dbPath = &#39;/data/roster.db&#39;;
++       results.databaseFile.path = dbPath;
++       results.databaseFile.exists = fs.existsSync(dbPath);
++       
++       if (results.databaseFile.exists) {
++         const stats = fs.statSync(dbPath);
++         results.databaseFile.size = stats.size;
++         results.databaseFile.modified = stats.mtime;
++         results.databaseFile.created = stats.birthtime;
++       }
++       
++       // Check WAL and SHM files
++       results.databaseFile.walExists = fs.existsSync(&#39;/data/roster.db-wal&#39;);
++       results.databaseFile.shmExists = fs.existsSync(&#39;/data/roster.db-shm&#39;);
++       
++       if (results.databaseFile.walExists) {
++         const walStats = fs.statSync(&#39;/data/roster.db-wal&#39;);
++         results.databaseFile.walSize = walStats.size;
++       }
++     } catch (error: any) {
++       results.databaseFile.error = error.message;
++     }
++     
++     // Try to write a test file
++     try {
++       const testPath = &#39;/data/test-write.txt&#39;;
++       const testContent = &#96;Test write at ${new Date().toISOString()}&#96;;
++       fs.writeFileSync(testPath, testContent);
++       
++       // Read it back
++       const readBack = fs.readFileSync(testPath, &#39;utf-8&#39;);
++       results.testWrite.success = (readBack === testContent);
++       results.testWrite.content = readBack;
++       
++       // Clean up
++       fs.unlinkSync(testPath);
++     } catch (error: any) {
++       results.testWrite.error = error.message;
++     }
++     
++     return NextResponse.json({
++       success: true,
++       volumePath: &#39;/data&#39;,
++       databasePath: process.env.DATABASE_PATH,
++       ...results,
++     });
++   } catch (error: any) {
++     return NextResponse.json({
++       success: false,
++       error: error.message,
++       stack: error.stack,
++     }, { status: 500 });
++   }
++ }
++ 
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Add filesystem debug endpoint to verify volume persistence" && git push</summary>
+
+```bash
+cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Add filesystem debug endpoint to verify volume persistence" && git push
+```
+
+```
+[main a0deada] Add filesystem debug endpoint to verify volume persistence
+ Committer: Your Name &lt;sai@SAIdeMacBook-Air.local&gt;
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name &quot;Your Name&quot;
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 2 files changed, 509 insertions(+)
+ create mode 100644 app/api/debug/filesystem/route.ts
+To https://github.com/q17983/warehouse-roster-system.git
+   d8bc397..a0deada  main -&gt; main
+
+```
+</details>
+</tool-use>
+
+---
+
+<think><details><summary>Thought Process</summary>
+I've created a filesystem debug endpoint to check if:
+1. The /data directory actually exists
+2. What files are in it
+3. If the database file exists and what size it is
+4. If the volume can actually persist writes
+
+This will tell us if the volume is truly working or if files are being deleted on redeploy.</details></think>
+
+---
+
+Perfect! Now we'll see what's actually happening with the files. After deployment (2 mins), run these tests IN ORDER:
+
+## 🧪 Critical Test Sequence
+
+### Test 1: Check Filesystem BEFORE Processing
+Visit: `https://warehouse-roster-system-production.up.railway.app/api/debug/filesystem`
+
+**Copy the entire JSON** - this shows the initial state.
+
+### Test 2: Process Data
+Go to Admin → Click "Process Data"
+
+Watch Railway logs for:
+```
+[Brain] Total staff in database after sync: 6
+```
+
+### Test 3: Check Filesystem AFTER Processing
+Visit: `https://warehouse-roster-system-production.up.railway.app/api/debug/filesystem` again
+
+**Copy the JSON** - compare with before. 
+
+**Key questions:**
+- Did `roster.db` file SIZE increase?
+- What's the `modified` timestamp?
+- Does `roster.db-wal` exist and have size > 0?
+
+### Test 4: Check Connection
+Visit: `https://warehouse-roster-system-production.up.railway.app/api/debug/connection`
+
+**Should NOW show data if WAL file exists**
+
+---
+
+## What This Will Reveal
+
+If filesystem shows:
+- ✅ `roster.db` exists with size > 0 → Database file is there
+- ✅ `roster.db-wal` exists with size > 0 → WAL has unsynced data
+- ❌ `roster.db` size = 0 or very small → Data not being written
+- ❌ Files don't exist → Volume not working
+
+**Run the tests IN ORDER and send me all 3 JSON responses (filesystem before, filesystem after, connection).**
+
+---
+
+_**User (2025-11-02 09:46Z)**_
+
+the deployment has done,, and now showing this,, i will start the checking the filesyytem. Mounting volume on: /var/lib/containers/railwayapp/bind-mounts/31e365eb-a1ca-41f6-9cd2-dcf22da9b27a/vol_j1rf2fn8djkw4kaj
+Starting Container
+ ⚠ You are using a non-standard "NODE_ENV" value in your environment. This creates inconsistencies in the project and is strongly advised against. Read more: https://nextjs.org/docs/messages/non-standard-node-env
+ ✓ Ready in 504ms
+ ⚠ You are using a non-standard "NODE_ENV" value in your environment. This creates inconsistencies in the project and is strongly advised against. Read more: https://nextjs.org/docs/messages/non-standard-node-env
+  ▲ Next.js 14.2.33
+npm warn config production Use `--omit=dev` instead.
+  - Local:        http://localhost:8080
+> warehouse-roster-system@1.0.0 start
+> next start
+ ✓ Starting...
+
+---
+
+_**Agent (model claude-4.5-sonnet-thinking, mode Agent)**_
+
+<think><details><summary>Thought Process</summary>
+The user is showing that the deployment has started. They can see:
+- Volume is being mounted: `/var/lib/containers/railwayapp/bind-mounts/31e365eb-a1ca-41f6-9cd2-dcf22da9b27a/vol_j1rf2fn8djkw4kaj`
+- The service is starting up
+- Next.js is ready
+
+Now they need to follow the test sequence I provided. I should wait for them to run the tests and provide the results. Let me acknowledge that the deployment is complete and remind them of the testing steps.</details></think>
+
+---
+
+Perfect! The deployment is complete and I can see the volume is being mounted:
+
+```
+Mounting volume on: /var/lib/containers/railwayapp/bind-mounts/.../vol_j1rf2fn8djkw4kaj
+```
+
+✅ Volume mount looks good!
+
+---
+
+## Now Run the Test Sequence
+
+Follow these steps **IN ORDER** and send me the results:
+
+### ✅ Step 1: Check Filesystem BEFORE Processing
+Visit:
+```
+https://warehouse-roster-system-production.up.railway.app/api/debug/filesystem
+```
+**Copy the entire JSON response**
+
+---
+
+### ✅ Step 2: Process Data
+Go to:
+```
+https://warehouse-roster-system-production.up.railway.app/admin
+```
+Click **"Process Data"** button
+
+Wait for "Success" message
+
+---
+
+### ✅ Step 3: Check Filesystem AFTER Processing
+Visit the same URL again:
+```
+https://warehouse-roster-system-production.up.railway.app/api/debug/filesystem
+```
+**Copy the entire JSON response**
+
+---
+
+### ✅ Step 4: Check Connection
+Visit:
+```
+https://warehouse-roster-system-production.up.railway.app/api/debug/connection
+```
+**Copy the entire JSON response**
+
+---
+
+### ✅ Step 5: Check Staff API
+Visit:
+```
+https://warehouse-roster-system-production.up.railway.app/api/staff
+```
+**Copy the JSON response**
+
+---
+
+**Send me all the JSON responses from these 5 steps.** This will show us exactly what's happening with the database files and data!
 
 ---
 
