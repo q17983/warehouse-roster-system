@@ -18,7 +18,20 @@ export default function AdminPanel() {
         const response = await fetch('/api/config');
         const data = await response.json();
         if (data.success) {
-          if (data.webAppUrl) setWebAppUrl(data.webAppUrl);
+          // Fix URL if missing 'h' (ensure it starts with http:// or https://)
+          let url = data.webAppUrl || '';
+          if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+            // If it starts with 'ttp' or 'ttps', add 'h'
+            if (url.startsWith('ttp://')) {
+              url = 'h' + url;
+            } else if (url.startsWith('ttps://')) {
+              url = 'h' + url;
+            } else {
+              // If it doesn't start with http/https at all, add https://
+              url = 'https://' + url;
+            }
+          }
+          if (url) setWebAppUrl(url);
           if (data.csvUrl) setCsvUrl(data.csvUrl);
           setConfigLoaded(true);
         }

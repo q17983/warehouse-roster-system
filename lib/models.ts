@@ -102,7 +102,9 @@ export const RosterModel = {
 
   getByStaffId: (staffId: number): string[] => {
     const result = db.prepare('SELECT date FROM roster WHERE staff_id = ? ORDER BY date').all(staffId) as RosterAssignment[];
-    return result.map(r => r.date);
+    const dates = result.map(r => r.date);
+    console.log(`[RosterModel] getByStaffId(${staffId}): Found ${dates.length} dates:`, dates);
+    return dates;
   },
 
   add: (staffId: number, date: string, slotNumber: number = 1): RosterAssignment => {

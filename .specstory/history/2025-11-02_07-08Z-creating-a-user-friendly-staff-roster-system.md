@@ -14118,3 +14118,348 @@ Lines added: 3, lines removed: 1
 
 ---
 
+Addressing the database persistence issue. Adding better logging and checking the database path:
+
+
+---
+
+<tool-use data-tool-type="read" data-tool-name="read_file">
+<details><summary>Tool use: **read_file** • Read file: /Users/sai/Warehouse management/lib/database.ts</summary>
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="write">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/RAILWAY_DATABASE_ISSUE.md</summary>
+
+**Chunk 1**
+Lines added: 131, lines removed: 1
+
+```diff
+@@ -1,1 +1,131 @@
+- 
++ # Railway Database Persistence Issue
++ 
++ ## Problem
++ - Data is lost after redeploy
++ - Need to re-process data every time
++ - &quot;Check Staff&quot; not showing assigned staff
++ 
++ ## Root Cause
++ Without a persistent volume, Railway uses **ephemeral storage**. This means:
++ - Database file (&#96;roster.db&#96;) is created in the container filesystem
++ - When Railway redeploys, the container is recreated
++ - All files in ephemeral storage are lost
++ - Database is wiped clean
++ 
++ ## Solutions
++ 
++ ### Solution 1: Set Up Persistent Volume (Best - Permanent Fix)
++ 
++ **Why you couldn&#39;t find it:**
++ - Railway&#39;s UI may have changed
++ - Volumes might require a paid plan
++ - Or it&#39;s in a different location
++ 
++ **Try These Steps:**
++ 
++ 1. **Railway Dashboard → Your Service → Settings**
++ 2. Look for sections:
++    - &quot;Volumes&quot;
++    - &quot;Storage&quot; 
++    - &quot;Persistent Storage&quot;
++    - &quot;Mount Points&quot;
++ 3. Or try creating volume via CLI:
++    &#96;&#96;&#96;bash
++    railway volumes create data --mount /data
++    &#96;&#96;&#96;
++ 
++ **Then update environment variable:**
++ &#96;&#96;&#96;
++ DATABASE_PATH=/data/roster.db
++ &#96;&#96;&#96;
++ 
++ ### Solution 2: Use Railway&#39;s PostgreSQL (Alternative)
++ 
++ Railway offers managed PostgreSQL databases:
++ 1. In Railway → New → Database → PostgreSQL
++ 2. Get connection string
++ 3. Update code to use PostgreSQL instead of SQLite
++ 4. Requires code changes (significant)
++ 
++ ### Solution 3: Accept Temporary Storage (Workaround)
++ 
++ For now, using &#96;./roster.db&#96; means:
++ - ✅ Works during runtime
++ - ✅ Data persists while service is running
++ - ❌ Lost on redeploy
++ - ❌ Lost on service restart
++ 
++ **This is acceptable for:**
++ - Testing
++ - Development
++ - Small deployments with infrequent redeploys
++ 
++ ### Solution 4: Auto-Sync on Startup (Temporary Fix)
++ 
++ Add automatic data sync when app starts:
++ - App checks if database is empty
++ - If empty, automatically calls &#96;/api/sync&#96;
++ - This way data is restored after redeploy
++ 
++ ---
++ 
++ ## Current Status Check
++ 
++ To verify if database is working:
++ 
++ 1. **Check if database file exists:**
++    - Railway Dashboard → Your Service → Logs
++    - Look for database initialization messages
++ 
++ 2. **Test direct API:**
++    &#96;&#96;&#96;
++    https://warehouse-roster-system-production.up.railway.app/api/staff
++    &#96;&#96;&#96;
++    Should return staff list if database has data
++ 
++ 3. **Check environment variable:**
++    - Railway Dashboard → Your Service → Variables
++    - Verify &#96;DATABASE_PATH&#96; is set
++ 
++ ---
++ 
++ ## Recommended Next Steps
++ 
++ 1. **Try to find/create volume again:**
++    - Check Railway documentation
++    - Contact Railway support
++    - Or try Railway CLI
++ 
++ 2. **If no volume available:**
++    - Use current setup (ephemeral storage)
++    - Accept that data needs re-processing after redeploy
++    - Set up automatic sync (see Solution 4 above)
++ 
++ 3. **For production:**
++    - Definitely need persistent storage
++    - Either Railway volume OR PostgreSQL
++ 
++ ---
++ 
++ ## Why It Works Locally But Not on Railway
++ 
++ **Locally:**
++ - Database file (&#96;roster.db&#96;) is in your project folder
++ - File persists between runs
++ - Data is saved permanently
++ 
++ **On Railway (without volume):**
++ - Database file is in container filesystem
++ - Container is destroyed on redeploy
++ - Files are lost with container
++ 
++ ---
++ 
++ ## Quick Check: Is Database Being Written?
++ 
++ Test this:
++ 1. Process data → Assign staff
++ 2. Check &#96;/api/staff&#96; endpoint → Should see staff
++ 3. Check &#96;/api/roster/2025-11-05&#96; → Should see assignments
++ 4. Redeploy → Data is gone (expected without volume)
++ 
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="read" data-tool-name="read_file">
+<details><summary>Tool use: **read_file** • Read file: /Users/sai/Warehouse management/lib/database.ts</summary>
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/lib/database.ts</summary>
+
+**Chunk 1**
+Lines added: 15, lines removed: 3
+
+```diff
+@@ -5,12 +5,24 @@
+  // Get database path from environment or use default
+  const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), &#39;roster.db&#39;);
++ 
++ // Log database path for debugging (especially on Railway)
++ console.log(&#39;[Database] Initializing database at:&#39;, dbPath);
++ console.log(&#39;[Database] DATABASE_PATH env:&#39;, process.env.DATABASE_PATH || &#39;not set (using default)&#39;);
+  
+  // Ensure directory exists (important for Railway volumes)
+  const dbDir = path.dirname(dbPath);
+  if (dbDir &amp;&amp; !fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+- }
+- 
+- const db = new Database(dbPath);
++   console.log(&#39;[Database] Created directory:&#39;, dbDir);
++ }
++ 
++ let db: Database.Database;
++ try {
++   db = new Database(dbPath);
++   console.log(&#39;[Database] Database opened successfully&#39;);
++ } catch (error) {
++   console.error(&#39;[Database] Failed to open database:&#39;, error);
++   throw error;
++ }
+  
+  // Initialize database tables
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Pre-fill webapp URL in admin panel and add database logging for Railway debugging" && git push</summary>
+
+```bash
+cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Pre-fill webapp URL in admin panel and add database logging for Railway debugging" && git push
+```
+
+```
+[main 458a0cd] Pre-fill webapp URL in admin panel and add database logging for Railway debugging
+ Committer: Your Name &lt;sai@SAIdeMacBook-Air.local&gt;
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name &quot;Your Name&quot;
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 6 files changed, 1023 insertions(+), 4 deletions(-)
+ create mode 100644 RAILWAY_DATABASE_ISSUE.md
+ create mode 100644 TROUBLESHOOTING_CHECK_STAFF.md
+ create mode 100644 app/api/config/route.ts
+To https://github.com/q17983/warehouse-roster-system.git
+   6f72124..458a0cd  main -&gt; main
+
+```
+</details>
+</tool-use>
+
+---
+
+
+
+---
+
+Fixed both issues.
+
+## Fixed: Admin panel pre-fills webapp URL
+
+- The admin page now auto-loads the `APPS_SCRIPT_WEB_APP_URL` from environment variables
+- No need to copy/paste every time
+- Shows a checkmark if it's pre-filled
+
+---
+
+## Database persistence issue (Railway)
+
+Why data disappears on redeploy:
+- Railway uses ephemeral storage without a persistent volume
+- The database file is in the container filesystem
+- On redeploy, the container is recreated and files are lost
+
+What I added:
+- Database logging — check Railway logs to see where the database is being created
+- After Railway redeploys (1–2 minutes), check Railway Dashboard → Your Service → Logs
+- Look for messages like:
+  ```
+  [Database] Initializing database at: ./roster.db
+  [Database] DATABASE_PATH env: not set (using default)
+  ```
+
+---
+
+## How to fix database persistence
+
+### Option 1: Set up a persistent volume (recommended)
+
+Since the Volumes section isn’t visible, try:
+
+1. Railway CLI (if installed):
+   ```bash
+   railway login
+   railway link
+   railway volumes create data --mount /data
+   ```
+
+2. Then set environment variable in Railway:
+   ```
+   DATABASE_PATH=/data/roster.db
+   ```
+
+### Option 2: Keep current setup (data lost on redeploy)
+
+- Works during runtime
+- Data persists while the service is running
+- You’ll need to re-process data after redeploys (about 1 click)
+- Acceptable for testing/small deployments
+
+---
+
+## Next steps
+
+1. Wait for Railway to redeploy (1–2 minutes)
+
+2. Check admin panel:
+   - Go to: `https://warehouse-roster-system-production.up.railway.app/admin`
+   - The webapp URL should be pre-filled
+
+3. Check Railway logs:
+   - Railway Dashboard → Your Service → Logs
+   - Look for `[Database]` messages
+   - This shows where the database is being created
+
+4. Test database persistence:
+   - Process data → Assign staff
+   - Check if data shows in "Check Staff"
+   - If not, check the logs for database path issues
+
+---
+
+## Why it works locally but not on Railway
+
+- Locally: Database file is in your project folder (persists)
+- Railway (no volume): Database is in container filesystem (lost on redeploy)
+
+The database works during runtime, but redeploys wipe it. That’s why you need to re-process data.
+
+---
+
+After the redeploy, check:
+1. Is the webapp URL pre-filled? (It should be.)
+2. What does the Railway log show for database path?
+3. Does "Check Staff" work after assigning staff?
+
+Share the Railway log output if you want help interpreting it.
+
+---
+
