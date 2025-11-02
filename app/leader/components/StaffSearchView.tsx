@@ -48,10 +48,20 @@ export default function StaffSearchView() {
       const response = await fetch(`/api/staff/${staffId}/schedule`);
       const data = await response.json();
       
-      if (data.success) {
-        setSchedule(data.staff);
+      console.log('Schedule API response:', data);
+      
+      if (data.success && data.staff) {
+        // Ensure arrays exist (handle undefined/null)
+        const scheduleData = {
+          ...data.staff,
+          scheduledDates: data.staff.scheduledDates || [],
+          availableDates: data.staff.availableDates || [],
+        };
+        console.log('Setting schedule:', scheduleData);
+        setSchedule(scheduleData);
       } else {
-        alert('Failed to load schedule');
+        console.error('API returned error:', data);
+        alert(`Failed to load schedule: ${data.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error loading schedule:', error);
@@ -104,7 +114,7 @@ export default function StaffSearchView() {
                     ))}
                   </div>
                 ) : (
-                  <div className={styles.emptyMessage}>No scheduled dates</div>
+                  <div className={styles.emptyMessage}>No scheduled dates found</div>
                 )}
               </div>
 
@@ -121,10 +131,12 @@ export default function StaffSearchView() {
                     ))}
                   </div>
                 ) : (
-                  <div className={styles.emptyMessage}>No available dates</div>
+                  <div className={styles.emptyMessage}>No available dates found</div>
                 )}
               </div>
             </>
+          ) : selectedStaffId ? (
+            <div className={styles.emptyMessage}>No schedule data found for this staff member</div>
           ) : (
             <div className={styles.emptyMessage}>Select a staff member to view their schedule</div>
           )}
