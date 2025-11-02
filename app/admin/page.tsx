@@ -10,6 +10,7 @@ export default function AdminPanel() {
   const [webAppUrl, setWebAppUrl] = useState('');
   const [csvUrl, setCsvUrl] = useState('');
   const [configLoaded, setConfigLoaded] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   // Load pre-configured URLs from environment on mount
   useEffect(() => {
@@ -42,6 +43,44 @@ export default function AdminPanel() {
     };
     loadConfig();
   }, []);
+
+  const handleClearData = async () => {
+    if (!confirm('⚠️ WARNING: This will delete ALL data (staff, availability, roster) from the database!\n\nYou will need to Process Data again to reload from Google Sheet.\n\nAre you sure?')) {
+      return;
+    }
+
+    setClearing(true);
+    setResult(null);
+
+    try {
+      const response = await fetch('/api/admin/clear-data', {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setResult({
+          success: true,
+          message: '✅ All data cleared! Click "Process Data" to reload from Google Sheet.',
+        });
+        // Trigger staff list reload in StaffManagement component
+        window.location.reload();
+      } else {
+        setResult({
+          success: false,
+          message: data.message || 'Failed to clear data',
+        });
+      }
+    } catch (error: any) {
+      setResult({
+        success: false,
+        message: error.message || 'Error clearing data',
+      });
+    } finally {
+      setClearing(false);
+    }
+  };
 
   const handleProcessData = async () => {
     setProcessing(true);
@@ -117,13 +156,24 @@ export default function AdminPanel() {
           </small>
         </div>
 
-        <button
-          onClick={handleProcessData}
-          disabled={processing}
-          className={styles.processButton}
-        >
-          {processing ? 'Processing...' : 'Process Data'}
-        </button>
+        <div className={styles.buttonGroup}>
+          <button
+            onClick={handleProcessData}
+            disabled={processing || clearing}
+            className={styles.processButton}
+          >
+            {processing ? 'Processing...' : 'Process Data'}
+          </button>
+
+          <button
+            onClick={handleClearData}
+            disabled={processing || clearing}
+            className={styles.clearButton}
+            title="Remove all data from database (staff, availability, roster)"
+          >
+            {clearing ? 'Clearing...' : '🗑️ Clear All Data'}
+          </button>
+        </div>
 
         {result && (
           <div className={`${styles.result} ${result.success ? styles.success : styles.error}`}>

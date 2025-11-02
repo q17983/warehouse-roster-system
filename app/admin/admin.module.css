@@ -69,8 +69,14 @@
   border-color: #667eea;
 }
 
+.buttonGroup {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
 .processButton {
-  width: 100%;
+  flex: 1;
   padding: 1rem;
   background: #667eea;
   color: white;
@@ -85,6 +91,27 @@
 }
 
 .processButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.clearButton {
+  flex: 0 0 auto;
+  padding: 1rem 1.5rem;
+  background: #dc3545;
+  color: white;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.clearButton:hover:not(:disabled) {
+  background: #c82333;
+}
+
+.clearButton:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
