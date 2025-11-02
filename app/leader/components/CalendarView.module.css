@@ -1,0 +1,422 @@
+/* Mobile-First Design for iPhone */
+.container {
+  width: 100%;
+  padding-bottom: 2rem;
+}
+
+/* Week Navigation - Compact for Mobile */
+.weekNav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  gap: 0.5rem;
+}
+
+.navButton {
+  padding: 0.6rem 1rem;
+  background: #667eea;
+  color: white;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  min-width: 48px;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+  border: none;
+  cursor: pointer;
+}
+
+.navButton:active {
+  background: #5568d3;
+  transform: scale(0.95);
+}
+
+.jumpButton {
+  padding: 0.6rem 0.8rem;
+  background: #f0f0f0;
+  color: #667eea;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  min-width: 48px;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+}
+
+.jumpButton:active {
+  background: #e0e0e0;
+  transform: scale(0.95);
+}
+
+.weekInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.weekLabel {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.planningBadge {
+  font-size: 0.7rem;
+  color: #667eea;
+  font-weight: 600;
+}
+
+/* Vertical List of Days - One Day Per Row */
+.daysList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dayRow {
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 1rem;
+  transition: all 0.2s;
+}
+
+.dayRow.today {
+  border-color: #4caf50;
+  background: #f1f8f4;
+}
+
+.dayRowHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+.dayName {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+}
+
+.dayDate {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.staffCount {
+  font-size: 0.8rem;
+  color: #667eea;
+  font-weight: 600;
+  background: #f0f4ff;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+}
+
+/* Staff Container - Shows ALL Staff */
+.staffContainer {
+  margin-bottom: 0.75rem;
+  min-height: 40px;
+}
+
+.staffGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.staffChip {
+  background: #667eea;
+  color: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.emptyDay {
+  color: #999;
+  font-size: 0.85rem;
+  font-style: italic;
+  padding: 0.5rem 0;
+}
+
+/* Assign Button - Large Touch Target */
+.assignButton {
+  width: 100%;
+  padding: 1rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  min-height: 48px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.assignButton:active {
+  background: #5568d3;
+  transform: scale(0.98);
+}
+
+/* Full-Screen Modal for iPhone */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 1000;
+  padding: 0;
+}
+
+.modal {
+  background: white;
+  border-radius: 20px 20px 0 0;
+  width: 100%;
+  max-width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e0e0e0;
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 10;
+}
+
+.modalHeader h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #333;
+  margin: 0;
+}
+
+.closeButton {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #f0f0f0;
+  font-size: 1.8rem;
+  line-height: 1;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  min-width: 48px;
+  min-height: 48px;
+}
+
+.closeButton:active {
+  background: #e0e0e0;
+}
+
+.modalContent {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 1rem;
+}
+
+.selectedCount {
+  padding: 0.75rem;
+  background: #f0f4ff;
+  border-radius: 8px;
+  text-align: center;
+  font-weight: 600;
+  color: #667eea;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.loading,
+.emptyState {
+  padding: 3rem 2rem;
+  text-align: center;
+  color: #999;
+  font-size: 1rem;
+}
+
+.staffSelectionList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.staffSelectItem {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: #f9f9f9;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  text-align: left;
+  transition: all 0.2s;
+  width: 100%;
+  min-height: 56px;
+  cursor: pointer;
+  border: none;
+}
+
+.staffSelectItem:active {
+  transform: scale(0.98);
+}
+
+.staffSelectItem.selected {
+  border-color: #667eea;
+  background: #e8edff;
+}
+
+.checkbox {
+  width: 28px;
+  height: 28px;
+  border: 2px solid #667eea;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: white;
+  background: #667eea;
+  flex-shrink: 0;
+  font-size: 1.1rem;
+}
+
+.staffSelectItem:not(.selected) .checkbox {
+  background: white;
+  color: transparent;
+  border-color: #ccc;
+}
+
+.staffName {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+  flex: 1;
+}
+
+.modalActions {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e0e0e0;
+  background: white;
+  position: sticky;
+  bottom: 0;
+}
+
+.cancelButton,
+.saveButton {
+  flex: 1;
+  padding: 1rem;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  border: none;
+  cursor: pointer;
+  min-height: 52px;
+}
+
+.cancelButton {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.cancelButton:active {
+  background: #e0e0e0;
+  transform: scale(0.98);
+}
+
+.saveButton {
+  background: #667eea;
+  color: white;
+}
+
+.saveButton:active:not(:disabled) {
+  background: #5568d3;
+  transform: scale(0.98);
+}
+
+.saveButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Desktop adjustments */
+@media (min-width: 768px) {
+  .modal {
+    border-radius: 16px;
+    max-width: 600px;
+    max-height: 80vh;
+  }
+
+  .modalOverlay {
+    align-items: center;
+  }
+
+  .dayRow {
+    max-width: 100%;
+  }
+
+  .staffGrid {
+    max-width: 100%;
+  }
+}
+
+/* iPhone specific optimizations */
+@supports (-webkit-touch-callout: none) {
+  .modalContent {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .modalActions {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+}
+

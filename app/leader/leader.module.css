@@ -1,0 +1,66 @@
+.container {
+  min-height: 100vh;
+  background: #f5f5f5;
+  padding: 1rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  gap: 0.5rem;
+}
+
+.title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #333;
+  flex: 1;
+}
+
+.switchButton {
+  padding: 0.75rem 1rem;
+  background: #667eea;
+  color: white;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: background 0.2s;
+  min-height: 44px;
+  min-width: 44px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.switchButton:active {
+  background: #5568d3;
+  transform: scale(0.95);
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 0.5rem;
+  }
+  
+  .header {
+    padding: 0.75rem;
+  }
+  
+  .title {
+    font-size: 1.25rem;
+  }
+  
+  .switchButton {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
+}
+

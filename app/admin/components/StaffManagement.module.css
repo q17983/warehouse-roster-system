@@ -1,0 +1,237 @@
+.container {
+  width: 100%;
+}
+
+.header {
+  margin-bottom: 1.5rem;
+}
+
+.header h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.searchBox {
+  margin-bottom: 1.5rem;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.staffList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.staffCard {
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s;
+}
+
+.staffCard:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.staffInfo {
+  flex: 1;
+}
+
+.staffName {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 0.25rem;
+}
+
+.staffPhone {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.staffActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.editButton,
+.deleteButton {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 40px;
+}
+
+.editButton {
+  background: #f0f4ff;
+  color: #667eea;
+}
+
+.editButton:active {
+  background: #e8edff;
+}
+
+.deleteButton {
+  background: #fff5f5;
+  color: #f44336;
+}
+
+.deleteButton:active:not(:disabled) {
+  background: #ffe0e0;
+}
+
+.deleteButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.editForm {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.editInput {
+  padding: 0.75rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.editInput:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.editInput:disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.editActions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.cancelBtn,
+.saveBtn {
+  flex: 1;
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 44px;
+}
+
+.cancelBtn {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.cancelBtn:active:not(:disabled) {
+  background: #e0e0e0;
+}
+
+.saveBtn {
+  background: #667eea;
+  color: white;
+}
+
+.saveBtn:active:not(:disabled) {
+  background: #5568d3;
+}
+
+.saveBtn:disabled,
+.cancelBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.empty {
+  text-align: center;
+  padding: 3rem;
+  color: #999;
+  font-size: 1rem;
+}
+
+.infoBox {
+  background: #f9f9f9;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-top: 2rem;
+}
+
+.infoBox h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.infoBox ul {
+  list-style-position: inside;
+  color: #666;
+  line-height: 1.8;
+}
+
+.infoBox li {
+  margin-bottom: 0.75rem;
+}
+
+.infoBox strong {
+  color: #333;
+}
+
+@media (max-width: 768px) {
+  .staffCard {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .staffActions {
+    width: 100%;
+  }
+
+  .editButton,
+  .deleteButton {
+    flex: 1;
+  }
+}
+

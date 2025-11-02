@@ -1,0 +1,129 @@
+.container {
+  width: 100%;
+}
+
+.searchSection {
+  margin-bottom: 2rem;
+}
+
+.sectionTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 1rem;
+  padding: 0 0.5rem;
+}
+
+.staffGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.staffCard {
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-align: center;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.staffCard:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.2);
+  transform: translateY(-2px);
+}
+
+.staffCard.selected {
+  border-color: #667eea;
+  background: #f0f4ff;
+}
+
+.staffName {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.staffPhone {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.scheduleSection {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.loading,
+.emptyMessage {
+  text-align: center;
+  color: #999;
+  padding: 2rem;
+}
+
+.scheduleGroup {
+  margin-bottom: 2rem;
+}
+
+.scheduleGroup:last-child {
+  margin-bottom: 0;
+}
+
+.groupTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #666;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.dateList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.dateBadge {
+  background: #667eea;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.dateBadge.available {
+  background: #4caf50;
+}
+
+@media (max-width: 768px) {
+  .staffGrid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.75rem;
+  }
+  
+  .staffCard {
+    padding: 1rem;
+  }
+  
+  .staffName {
+    font-size: 1rem;
+  }
+  
+  .scheduleSection {
+    padding: 1rem;
+  }
+  
+  .dateBadge {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.8rem;
+  }
+}
+
