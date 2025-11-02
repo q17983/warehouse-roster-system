@@ -59,17 +59,15 @@ if (!global.__database) {
     }
     
     db = new Database(dbPath, { 
-      verbose: console.log,
       fileMustExist: false,
     });
     console.log('[Database] Database opened successfully');
     
-    // CRITICAL: Ensure writes are synced to disk immediately
-    // This is crucial for Railway/containerized environments
-    db.pragma('journal_mode = WAL'); // Use WAL mode for better concurrency
-    db.pragma('synchronous = FULL'); // Force full sync to disk on every write
-    db.pragma('wal_autocheckpoint = 0'); // Disable auto-checkpoint, we'll do it manually
-    console.log('[Database] Set journal_mode=WAL, synchronous=FULL, manual checkpointing');
+    // Use DELETE mode for simplicity and immediate consistency
+    // This is slower but guarantees all reads/writes are instantly visible
+    db.pragma('journal_mode = DELETE');
+    db.pragma('synchronous = FULL');
+    console.log('[Database] Set journal_mode=DELETE, synchronous=FULL for immediate consistency');
     
     // Verify we can write to the database
     db.prepare('SELECT 1').get();
@@ -141,16 +139,13 @@ export function initializeDatabase() {
 // Helper function to ensure data is synced to disk
 export function syncDatabase() {
   try {
-    // Force a TRUNCATE checkpoint to ensure ALL changes are written to disk and WAL is cleared
-    const result = db.pragma('wal_checkpoint(TRUNCATE)', { simple: true });
-    console.log('[Database] WAL checkpoint (TRUNCATE) result:', result);
-    
-    // Verify data is actually on disk by counting records
+    // In DELETE mode, no WAL to checkpoint, data is immediately on disk
+    // Just verify the data is there
     const staffCount = db.prepare('SELECT COUNT(*) as count FROM staff').get() as { count: number };
     const rosterCount = db.prepare('SELECT COUNT(*) as count FROM roster').get() as { count: number };
-    console.log('[Database] After checkpoint - staff:', staffCount.count, 'roster:', rosterCount.count);
+    console.log('[Database] Sync verification - staff:', staffCount.count, 'roster:', rosterCount.count);
   } catch (error) {
-    console.error('[Database] Checkpoint error:', error);
+    console.error('[Database] Sync error:', error);
   }
 }
 
