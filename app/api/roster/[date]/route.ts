@@ -64,6 +64,11 @@ export async function POST(
     // Verify the assignments were saved
     const roster = RosterModel.getByDate(date);
     console.log(`[Roster API] Verified roster for ${date}:`, roster.length, 'staff members');
+    
+    // Force database sync to disk after saving roster
+    const { syncDatabase } = await import('@/lib/database');
+    syncDatabase();
+    console.log(`[Roster API] Roster for ${date} synced to disk`);
 
     return NextResponse.json({
       success: true,

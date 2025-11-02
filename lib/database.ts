@@ -52,6 +52,12 @@ try {
   db = new Database(dbPath);
   console.log('[Database] Database opened successfully');
   
+  // CRITICAL: Ensure writes are synced to disk immediately
+  // This is crucial for Railway/containerized environments
+  db.pragma('journal_mode = DELETE'); // Use DELETE mode instead of WAL for better persistence
+  db.pragma('synchronous = FULL'); // Force full sync to disk on every write
+  console.log('[Database] Set journal_mode=DELETE, synchronous=FULL for persistence');
+  
   // Verify we can write to the database
   db.prepare('SELECT 1').get();
   console.log('[Database] Database read/write test passed');
@@ -107,6 +113,19 @@ export function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_roster_date ON roster(date);
     CREATE INDEX IF NOT EXISTS idx_roster_staff ON roster(staff_id);
   `);
+  
+  console.log('[Database] Tables and indexes created/verified');
+}
+
+// Helper function to ensure data is synced to disk
+export function syncDatabase() {
+  try {
+    // Force a checkpoint to ensure all changes are written to disk
+    db.pragma('wal_checkpoint(TRUNCATE)');
+    console.log('[Database] Checkpoint completed - data synced to disk');
+  } catch (error) {
+    console.warn('[Database] Checkpoint warning (might not be in WAL mode):', error);
+  }
 }
 
 export default db;

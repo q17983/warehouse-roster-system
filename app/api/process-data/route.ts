@@ -33,6 +33,11 @@ export async function POST(request: NextRequest) {
 
     // Process the cleaned data through the "brain"
     const result = await processCleanData(cleanData);
+    
+    // Force database sync to disk after processing
+    const { syncDatabase } = await import('@/lib/database');
+    syncDatabase();
+    console.log('[Process Data API] Data synced to disk');
 
     return NextResponse.json({
       success: true,
