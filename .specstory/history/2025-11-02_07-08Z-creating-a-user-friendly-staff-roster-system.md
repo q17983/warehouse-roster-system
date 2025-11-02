@@ -25205,3 +25205,151 @@ If `beforeCount` is still 0, the database file is being deleted between requests
 
 ---
 
+_**User (2025-11-02 09:46Z)**_
+
+{"success":true,"test":"Write and read in same request","beforeCount":0,"afterCount":1,"insertResult":{"changes":1,"lastInsertRowid":1},"justInserted":{"id":1,"name":"Test_1762083740633","phone":"12345","created_at":"2025-11-02 11:42:20","updated_at":"2025-11-02 11:42:20"},"allStaff":[{"id":1,"name":"Test_1762083740633","phone":"12345","created_at":"2025-11-02 11:42:20","updated_at":"2025-11-02 11:42:20"}],"databasePath":"/data/roster.db"}
+
+---
+
+_**Agent (model claude-4.5-sonnet-thinking, mode Agent)**_
+
+<think><details><summary>Thought Process</summary>
+This is the EXACT same response again - same timestamp `1762083740633`, same ID `1`, same creation time `2025-11-02 11:42:20`. This can't be right.
+
+Either:
+1. The user is copying the same cached response
+2. Or something is VERY wrong
+
+Let me check if the user is actually refreshing. The timestamp in the name should be DIFFERENT each time the endpoint is called. But it's showing the exact same timestamp.
+
+Wait, this could be browser caching. Or the user might just be copying the same text.
+
+I need to verify if the database file actually persists between requests. Let me check the Railway logs or create a different test.</details></think>
+
+---
+
+This is the EXACT same response with the EXACT same timestamp (1762083740633). Your browser is definitely caching it.
+
+Let me create a different test that shows the current database state without writing:
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="write">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/app/api/debug/db-state/route.ts</summary>
+
+**Chunk 1**
+Lines added: 34, lines removed: 1
+
+```diff
+@@ -1,1 +1,34 @@
+- 
++ import { NextResponse } from &#39;next/server&#39;;
++ import &#39;@/lib/init&#39;;
++ import db from &#39;@/lib/database&#39;;
++ 
++ /**
++  * Just read database state - no writing
++  */
++ export async function GET() {
++   try {
++     const now = Date.now();
++     console.log(&#96;[DB State] Request at ${now}&#96;);
++     
++     const staffCount = db.prepare(&#39;SELECT COUNT(*) as count FROM staff&#39;).get() as { count: number };
++     const rosterCount = db.prepare(&#39;SELECT COUNT(*) as count FROM roster&#39;).get() as { count: number };
++     const allStaff = db.prepare(&#39;SELECT * FROM staff ORDER BY id&#39;).all();
++     
++     console.log(&#96;[DB State] Staff: ${staffCount.count}, Roster: ${rosterCount.count}&#96;);
++     
++     return NextResponse.json({
++       timestamp: now,
++       staffCount: staffCount.count,
++       rosterCount: rosterCount.count,
++       allStaff,
++       databasePath: process.env.DATABASE_PATH,
++     });
++   } catch (error: any) {
++     console.error(&#39;[DB State] Error:&#39;, error);
++     return NextResponse.json({
++       success: false,
++       error: error.message,
++     }, { status: 500 });
++   }
++ }
++ 
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Add read-only db state endpoint" && git push</summary>
+
+```bash
+cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Add read-only db state endpoint" && git push
+```
+
+```
+[main 20205e9] Add read-only db state endpoint
+ Committer: Your Name &lt;sai@SAIdeMacBook-Air.local&gt;
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name &quot;Your Name&quot;
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 2 files changed, 299 insertions(+)
+ create mode 100644 app/api/debug/db-state/route.ts
+To https://github.com/q17983/warehouse-roster-system.git
+   d58e381..20205e9  main -&gt; main
+
+```
+</details>
+</tool-use>
+
+---
+
+<think><details><summary>Thought Process</summary>
+The user is experiencing the same issue over and over - the database writes work in isolation but don't persist or aren't visible to other requests. 
+
+We've tried so many things:
+1. WAL mode
+2. DELETE mode  
+3. Global singleton
+4. Force checkpoints
+5. Multiple logging
+
+The simple test shows the database CAN write and read in the same request. But when we process data and then check it later, it's gone.
+
+This suggests the database file is being deleted/reset between deployments or the volume isn't actually persisting data.
+
+Let me create a read-only endpoint that just shows what's currently in the database without any writes. This will help us see if the data from the simple-test is still there.</details></think>
+
+---
+
+After deployment (~2 minutes), visit this NEW URL (it just reads, doesn't write):
+
+```
+https://warehouse-roster-system-production.up.railway.app/api/debug/db-state
+```
+
+This will show:
+- Current timestamp (so you can see it's not cached)
+- Staff count
+- All staff currently in database
+
+**If the test record from earlier is GONE (`staffCount: 0`), then the database file is being wiped between deployments.**
+
+Wait 2 minutes for deployment, then visit that URL and send me the response!
+
+---
+

@@ -50,6 +50,7 @@ export async function GET() {
         results.databaseFile.size = stats.size;
         results.databaseFile.modified = stats.mtime;
         results.databaseFile.created = stats.birthtime;
+        results.databaseFile.ageMinutes = (Date.now() - stats.mtime.getTime()) / 1000 / 60;
       }
       
       // Check WAL and SHM files
@@ -60,6 +61,19 @@ export async function GET() {
         const walStats = fs.statSync('/data/roster.db-wal');
         results.databaseFile.walSize = walStats.size;
       }
+      
+      // Check for any old database files
+      const dataFiles = fs.readdirSync('/data');
+      results.databaseFile.allFilesInData = dataFiles.map(f => {
+        const fullPath = `/data/${f}`;
+        const stats = fs.statSync(fullPath);
+        return {
+          name: f,
+          size: stats.size,
+          modified: stats.mtime,
+          ageMinutes: (Date.now() - stats.mtime.getTime()) / 1000 / 60,
+        };
+      });
     } catch (error: any) {
       results.databaseFile.error = error.message;
     }
