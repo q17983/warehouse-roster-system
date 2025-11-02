@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import db from '@/lib/database';
+import { StaffModel, AvailabilityModel, RosterModel } from '@/lib/models';
 import '@/lib/init'; // Initialize database
+import db from '@/lib/database';
 
 /**
  * Debug endpoint to check database state
@@ -8,19 +9,28 @@ import '@/lib/init'; // Initialize database
  */
 export async function GET() {
   try {
+    console.log('[Debug API] Fetching database stats...');
+    
     // Get database path
     const dbPath = process.env.DATABASE_PATH || 'roster.db';
     
-    // Count records in each table
+    // Use models to ensure we're using the same database connection
+    const allStaff = StaffModel.getAll();
+    console.log(`[Debug API] Found ${allStaff.length} staff via StaffModel`);
+    
+    // Count records directly
     const staffCount = db.prepare('SELECT COUNT(*) as count FROM staff').get() as { count: number };
     const availabilityCount = db.prepare('SELECT COUNT(*) as count FROM availability').get() as { count: number };
     const rosterCount = db.prepare('SELECT COUNT(*) as count FROM roster').get() as { count: number };
     
-    // Get sample roster entries
-    const sampleRoster = db.prepare('SELECT * FROM roster LIMIT 10').all();
+    console.log(`[Debug API] Direct counts: staff=${staffCount.count}, availability=${availabilityCount.count}, roster=${rosterCount.count}`);
     
-    // Get all staff IDs
-    const allStaff = db.prepare('SELECT id, name FROM staff LIMIT 20').all();
+    // Get sample roster entries
+    const sampleRoster = db.prepare('SELECT r.*, s.name FROM roster r LEFT JOIN staff s ON r.staff_id = s.id ORDER BY r.date DESC LIMIT 10').all();
+    console.log(`[Debug API] Sample roster: ${sampleRoster.length} entries`);
+    
+    // Get all roster entries with details
+    const allRosterEntries = db.prepare('SELECT * FROM roster ORDER BY date, slot_number').all();
     
     return NextResponse.json({
       success: true,
@@ -31,6 +41,7 @@ export async function GET() {
         rosterCount: rosterCount.count,
       },
       sampleRoster,
+      allRosterEntries,
       staffList: allStaff,
       environment: {
         DATABASE_PATH: process.env.DATABASE_PATH || 'not set',
@@ -38,6 +49,7 @@ export async function GET() {
       },
     });
   } catch (error: any) {
+    console.error('[Debug API] Error:', error);
     return NextResponse.json({
       success: false,
       error: error.message,
