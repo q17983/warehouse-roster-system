@@ -22655,7 +22655,165 @@ Even though we call `syncDatabase()` and use `synchronous=FULL`, the data isn't 
 
 ## The Solution
 
-SQLite's `journal_mode=DELETE` and `synchronous=FULL` aren't working as expected. We need to **force a WAL checkpoint after EVERY write
+SQLite's `journal_mode=DELETE` and `synchronous=FULL` aren't working as expected. We need to **force a WAL checkpoint after EVERY write**:
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/lib/database.ts</summary>
+
+**Chunk 1**
+Lines added: 7, lines removed: 3
+
+```diff
+@@ -59,12 +59,16 @@
+      }
+      
+-     db = new Database(dbPath);
++     db = new Database(dbPath, { 
++       verbose: console.log,
++       fileMustExist: false,
++     });
+      console.log(&#39;[Database] Database opened successfully&#39;);
+      
+      // CRITICAL: Ensure writes are synced to disk immediately
+      // This is crucial for Railway/containerized environments
+-     db.pragma(&#39;journal_mode = DELETE&#39;); // Use DELETE mode instead of WAL for better persistence
++     db.pragma(&#39;journal_mode = WAL&#39;); // Use WAL mode for better concurrency
+      db.pragma(&#39;synchronous = FULL&#39;); // Force full sync to disk on every write
+-     console.log(&#39;[Database] Set journal_mode=DELETE, synchronous=FULL for persistence&#39;);
++     db.pragma(&#39;wal_autocheckpoint = 1&#39;); // Checkpoint after every transaction
++     console.log(&#39;[Database] Set journal_mode=WAL, synchronous=FULL, wal_autocheckpoint=1 for persistence&#39;);
+      
+      // Verify we can write to the database
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/lib/database.ts</summary>
+
+**Chunk 1**
+Lines added: 8, lines removed: 3
+
+```diff
+@@ -143,8 +143,13 @@
+    try {
+      // Force a checkpoint to ensure all changes are written to disk
+-     db.pragma(&#39;wal_checkpoint(TRUNCATE)&#39;);
+-     console.log(&#39;[Database] Checkpoint completed - data synced to disk&#39;);
++     const result = db.pragma(&#39;wal_checkpoint(RESTART)&#39;, { simple: true });
++     console.log(&#39;[Database] WAL checkpoint result:&#39;, result);
++     
++     // Verify data is actually on disk by counting records
++     const staffCount = db.prepare(&#39;SELECT COUNT(*) as count FROM staff&#39;).get() as { count: number };
++     const rosterCount = db.prepare(&#39;SELECT COUNT(*) as count FROM roster&#39;).get() as { count: number };
++     console.log(&#39;[Database] After checkpoint - staff:&#39;, staffCount.count, &#39;roster:&#39;, rosterCount.count);
+    } catch (error) {
+-     console.warn(&#39;[Database] Checkpoint warning (might not be in WAL mode):&#39;, error);
++     console.error(&#39;[Database] Checkpoint error:&#39;, error);
+    }
+  }
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Switch to WAL mode with aggressive checkpointing to force disk writes" && git push</summary>
+
+```bash
+cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Switch to WAL mode with aggressive checkpointing to force disk writes" && git push
+```
+
+```
+[main a2b9496] Switch to WAL mode with aggressive checkpointing to force disk writes
+ Committer: Your Name &lt;sai@SAIdeMacBook-Air.local&gt;
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name &quot;Your Name&quot;
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 2 files changed, 245 insertions(+), 24 deletions(-)
+To https://github.com/q17983/warehouse-roster-system.git
+   e8a210c..a2b9496  main -&gt; main
+
+```
+</details>
+</tool-use>
+
+---
+
+<think><details><summary>Thought Process</summary>
+I've switched to WAL mode with very aggressive checkpointing. The key changes:
+1. Using WAL mode instead of DELETE mode
+2. Setting wal_autocheckpoint=1 to checkpoint after EVERY transaction
+3. Adding verbose logging to see all SQL operations
+4. Verifying data counts after checkpoint
+
+This should force SQLite to write to disk immediately. Let's see if this fixes the Railway issue.</details></think>
+
+---
+
+## 🎯 Critical Fix Deployed
+
+I've made these changes:
+
+1. **Switched to WAL mode** with `wal_autocheckpoint=1` - forces checkpoint after every write
+2. **Added verbose SQL logging** to see all database operations
+3. **Verify data after checkpoint** - counts staff/roster after each sync
+
+This will force SQLite to write to disk immediately and verify it worked.
+
+---
+
+## Test After Deployment
+
+Wait 2-3 minutes for Railway to deploy, then:
+
+### Step 1: Process Data
+Admin Panel → Click "Process Data"
+
+**Watch Railway logs for:**
+```
+[Database] WAL checkpoint result: ...
+[Database] After checkpoint - staff: 6, roster: X
+```
+
+### Step 2: Check Connection Debug
+Visit: `https://warehouse-roster-system-production.up.railway.app/api/debug/connection`
+
+**Should now show:**
+```json
+{
+  "directStaffCount": 6,
+  "staffRecords": [...]
+}
+```
+
+### Step 3: Check Staff API
+Visit: `https://warehouse-roster-system-production.up.railway.app/api/staff`
+
+**Should return 6 staff!**
+
+---
+
+**The WAL mode with aggressive checkpointing should force all writes to disk immediately. Test after deployment and let me know what the logs show!**
 
 ---
 

@@ -32,8 +32,22 @@ export interface StaffWithAvailability extends Staff {
 export const StaffModel = {
   getAll: (): Staff[] => {
     console.log('[StaffModel] getAll() called');
+    
+    // Force WAL checkpoint before read to ensure we see latest data
+    try {
+      db.pragma('wal_checkpoint(PASSIVE)');
+      console.log('[StaffModel] Forced WAL checkpoint before read');
+    } catch (e) {
+      console.warn('[StaffModel] WAL checkpoint warning:', e);
+    }
+    
     const result = db.prepare('SELECT * FROM staff ORDER BY name').all() as Staff[];
     console.log(`[StaffModel] getAll() returned ${result.length} staff`);
+    
+    // Also try a direct count as sanity check
+    const count = db.prepare('SELECT COUNT(*) as count FROM staff').get() as { count: number };
+    console.log(`[StaffModel] Direct COUNT query returned: ${count.count}`);
+    
     return result;
   },
 
