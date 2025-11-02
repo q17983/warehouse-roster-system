@@ -6,7 +6,15 @@ import fs from 'fs';
 /**
  * Force a full WAL checkpoint to merge data to main database
  */
+export async function GET() {
+  return handleCheckpoint();
+}
+
 export async function POST() {
+  return handleCheckpoint();
+}
+
+async function handleCheckpoint() {
   try {
     console.log('[Force Checkpoint] Starting TRUNCATE checkpoint...');
     
