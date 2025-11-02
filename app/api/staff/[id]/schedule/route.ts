@@ -8,7 +8,7 @@ export async function GET(
 ) {
   try {
     const staffId = parseInt(params.id);
-    const staffSchedule = getStaffWithSchedule(staffId);
+    const staffSchedule = await getStaffWithSchedule(staffId);
     
     if (!staffSchedule) {
       return NextResponse.json({

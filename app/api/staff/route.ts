@@ -4,7 +4,7 @@ import '@/lib/init';
 
 export async function GET() {
   try {
-    const staff = StaffModel.getAll();
+    const staff = await StaffModel.getAll();
     return NextResponse.json({
       success: true,
       staff,

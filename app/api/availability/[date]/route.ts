@@ -1,22 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AvailabilityModel } from '@/lib/models';
-import '@/lib/init'; // Initialize database
+import '@/lib/init';
 
-/**
- * Get all staff available on a specific date
- */
 export async function GET(
   request: NextRequest,
   { params }: { params: { date: string } }
 ) {
   try {
     const date = decodeURIComponent(params.date);
-    const availableStaff = AvailabilityModel.getByDate(date);
+    const staff = await AvailabilityModel.getByDate(date);
     
     return NextResponse.json({
       success: true,
       date,
-      staff: availableStaff,
+      staff,
     });
   } catch (error: any) {
     return NextResponse.json({
@@ -25,4 +22,3 @@ export async function GET(
     }, { status: 500 });
   }
 }
-

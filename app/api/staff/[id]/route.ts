@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { StaffModel } from '@/lib/models';
-import '@/lib/init'; // Initialize database
+import '@/lib/init';
 
-/**
- * Update staff member
- */
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -13,18 +10,18 @@ export async function PATCH(
     const staffId = parseInt(params.id);
     const { name, phone } = await request.json();
     
-    if (!name) {
+    if (!name || !name.trim()) {
       return NextResponse.json({
         success: false,
         message: 'Name is required',
       }, { status: 400 });
     }
 
-    const updated = StaffModel.update(staffId, name, phone);
-    
+    const updatedStaff = await StaffModel.update(staffId, name.trim(), phone);
+
     return NextResponse.json({
       success: true,
-      staff: updated,
+      staff: updatedStaff,
     });
   } catch (error: any) {
     return NextResponse.json({
@@ -34,20 +31,17 @@ export async function PATCH(
   }
 }
 
-/**
- * Delete staff member
- */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const staffId = parseInt(params.id);
-    StaffModel.delete(staffId);
-    
+    await StaffModel.delete(staffId);
+
     return NextResponse.json({
       success: true,
-      message: 'Staff member deleted',
+      message: 'Staff deleted successfully',
     });
   } catch (error: any) {
     return NextResponse.json({
@@ -56,4 +50,3 @@ export async function DELETE(
     }, { status: 500 });
   }
 }
-

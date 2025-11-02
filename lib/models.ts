@@ -1,4 +1,4 @@
-import db from './database';
+import pool from './database';
 
 export interface Staff {
   id: number;
@@ -30,106 +30,138 @@ export interface StaffWithAvailability extends Staff {
 
 // Staff operations
 export const StaffModel = {
-  getAll: (): Staff[] => {
-    return db.prepare('SELECT * FROM staff ORDER BY name').all() as Staff[];
+  getAll: async (): Promise<Staff[]> => {
+    const result = await pool.query('SELECT * FROM staff ORDER BY name');
+    return result.rows;
   },
 
-  getById: (id: number): Staff | undefined => {
-    return db.prepare('SELECT * FROM staff WHERE id = ?').get(id) as Staff | undefined;
+  getById: async (id: number): Promise<Staff | null> => {
+    const result = await pool.query('SELECT * FROM staff WHERE id = $1', [id]);
+    return result.rows[0] || null;
   },
 
-  getByName: (name: string): Staff | undefined => {
-    return db.prepare('SELECT * FROM staff WHERE name = ?').get(name) as Staff | undefined;
+  getByName: async (name: string): Promise<Staff | null> => {
+    const result = await pool.query('SELECT * FROM staff WHERE name = $1', [name]);
+    return result.rows[0] || null;
   },
 
-  create: (name: string, phone?: string): Staff => {
-    const result = db.prepare('INSERT INTO staff (name, phone) VALUES (?, ?)').run(name, phone || null);
-    return StaffModel.getById(result.lastInsertRowid as number)!;
+  create: async (name: string, phone?: string): Promise<Staff> => {
+    const result = await pool.query(
+      'INSERT INTO staff (name, phone) VALUES ($1, $2) RETURNING *',
+      [name, phone || null]
+    );
+    return result.rows[0];
   },
 
-  update: (id: number, name: string, phone?: string): Staff => {
-    db.prepare('UPDATE staff SET name = ?, phone = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(name, phone || null, id);
-    return StaffModel.getById(id)!;
+  update: async (id: number, name: string, phone?: string): Promise<Staff> => {
+    const result = await pool.query(
+      'UPDATE staff SET name = $1, phone = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *',
+      [name, phone || null, id]
+    );
+    return result.rows[0];
   },
 
-  delete: (id: number): void => {
-    db.prepare('DELETE FROM staff WHERE id = ?').run(id);
+  delete: async (id: number): Promise<void> => {
+    await pool.query('DELETE FROM staff WHERE id = $1', [id]);
   },
 };
 
 // Availability operations
 export const AvailabilityModel = {
-  getByDate: (date: string): Staff[] => {
-    const result = db.prepare(`
+  getByDate: async (date: string): Promise<Staff[]> => {
+    const result = await pool.query(`
       SELECT s.* FROM staff s
       INNER JOIN availability a ON s.id = a.staff_id
-      WHERE a.date = ?
+      WHERE a.date = $1
       ORDER BY s.name
-    `).all(date) as Staff[];
-    return result;
+    `, [date]);
+    return result.rows;
   },
 
-  getByStaffId: (staffId: number): string[] => {
-    const result = db.prepare('SELECT date FROM availability WHERE staff_id = ? ORDER BY date').all(staffId) as Availability[];
-    return result.map(a => a.date);
+  getByStaffId: async (staffId: number): Promise<string[]> => {
+    const result = await pool.query(
+      'SELECT date FROM availability WHERE staff_id = $1 ORDER BY date',
+      [staffId]
+    );
+    return result.rows.map((r: any) => r.date);
   },
 
-  add: (staffId: number, date: string): Availability => {
-    const result = db.prepare('INSERT OR IGNORE INTO availability (staff_id, date) VALUES (?, ?)').run(staffId, date);
-    return db.prepare('SELECT * FROM availability WHERE staff_id = ? AND date = ?').get(staffId, date) as Availability;
+  add: async (staffId: number, date: string): Promise<Availability> => {
+    const result = await pool.query(
+      'INSERT INTO availability (staff_id, date) VALUES ($1, $2) ON CONFLICT (staff_id, date) DO NOTHING RETURNING *',
+      [staffId, date]
+    );
+    if (result.rows[0]) {
+      return result.rows[0];
+    }
+    const existing = await pool.query(
+      'SELECT * FROM availability WHERE staff_id = $1 AND date = $2',
+      [staffId, date]
+    );
+    return existing.rows[0];
   },
 
-  remove: (staffId: number, date: string): void => {
-    db.prepare('DELETE FROM availability WHERE staff_id = ? AND date = ?').run(staffId, date);
+  remove: async (staffId: number, date: string): Promise<void> => {
+    await pool.query('DELETE FROM availability WHERE staff_id = $1 AND date = $2', [staffId, date]);
   },
 
-  clearForDate: (date: string): void => {
-    db.prepare('DELETE FROM availability WHERE date = ?').run(date);
+  clearForDate: async (date: string): Promise<void> => {
+    await pool.query('DELETE FROM availability WHERE date = $1', [date]);
   },
 };
 
 // Roster operations
 export const RosterModel = {
-  getByDate: (date: string): Staff[] => {
-    const result = db.prepare(`
+  getByDate: async (date: string): Promise<Staff[]> => {
+    const result = await pool.query(`
       SELECT s.*, r.slot_number FROM staff s
       INNER JOIN roster r ON s.id = r.staff_id
-      WHERE r.date = ?
+      WHERE r.date = $1
       ORDER BY r.slot_number, s.name
-    `).all(date) as (Staff & { slot_number: number })[];
-    return result;
+    `, [date]);
+    return result.rows;
   },
 
-  getByStaffId: (staffId: number): string[] => {
-    const result = db.prepare('SELECT date FROM roster WHERE staff_id = ? ORDER BY date').all(staffId) as RosterAssignment[];
-    return result.map(r => r.date);
+  getByStaffId: async (staffId: number): Promise<string[]> => {
+    const result = await pool.query(
+      'SELECT date FROM roster WHERE staff_id = $1 ORDER BY date',
+      [staffId]
+    );
+    return result.rows.map((r: any) => r.date);
   },
 
-  add: (staffId: number, date: string, slotNumber: number = 1): RosterAssignment => {
-    const result = db.prepare('INSERT OR REPLACE INTO roster (staff_id, date, slot_number) VALUES (?, ?, ?)').run(staffId, date, slotNumber);
-    return db.prepare('SELECT * FROM roster WHERE staff_id = ? AND date = ? AND slot_number = ?').get(staffId, date, slotNumber) as RosterAssignment;
+  add: async (staffId: number, date: string, slotNumber: number = 1): Promise<RosterAssignment> => {
+    const result = await pool.query(
+      `INSERT INTO roster (staff_id, date, slot_number) 
+       VALUES ($1, $2, $3) 
+       ON CONFLICT (staff_id, date, slot_number) 
+       DO UPDATE SET staff_id = $1 
+       RETURNING *`,
+      [staffId, date, slotNumber]
+    );
+    return result.rows[0];
   },
 
-  remove: (staffId: number, date: string, slotNumber?: number): void => {
+  remove: async (staffId: number, date: string, slotNumber?: number): Promise<void> => {
     if (slotNumber !== undefined) {
-      db.prepare('DELETE FROM roster WHERE staff_id = ? AND date = ? AND slot_number = ?').run(staffId, date, slotNumber);
+      await pool.query('DELETE FROM roster WHERE staff_id = $1 AND date = $2 AND slot_number = $3', [staffId, date, slotNumber]);
     } else {
-      db.prepare('DELETE FROM roster WHERE staff_id = ? AND date = ?').run(staffId, date);
+      await pool.query('DELETE FROM roster WHERE staff_id = $1 AND date = $2', [staffId, date]);
     }
   },
 
-  clearForDate: (date: string): void => {
-    db.prepare('DELETE FROM roster WHERE date = ?').run(date);
+  clearForDate: async (date: string): Promise<void> => {
+    await pool.query('DELETE FROM roster WHERE date = $1', [date]);
   },
 };
 
 // Combined operations
-export const getStaffWithSchedule = (staffId: number): StaffWithAvailability | null => {
-  const staff = StaffModel.getById(staffId);
+export const getStaffWithSchedule = async (staffId: number): Promise<StaffWithAvailability | null> => {
+  const staff = await StaffModel.getById(staffId);
   if (!staff) return null;
 
-  const availableDates = AvailabilityModel.getByStaffId(staffId);
-  const scheduledDates = RosterModel.getByStaffId(staffId);
+  const availableDates = await AvailabilityModel.getByStaffId(staffId);
+  const scheduledDates = await RosterModel.getByStaffId(staffId);
 
   return {
     ...staff,

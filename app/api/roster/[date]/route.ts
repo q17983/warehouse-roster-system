@@ -8,7 +8,7 @@ export async function GET(
 ) {
   try {
     const date = decodeURIComponent(params.date);
-    const roster = RosterModel.getByDate(date);
+    const roster = await RosterModel.getByDate(date);
     
     return NextResponse.json({
       success: true,
@@ -38,13 +38,13 @@ export async function POST(
       }, { status: 400 });
     }
 
-    RosterModel.clearForDate(date);
+    await RosterModel.clearForDate(date);
 
-    staffIds.forEach((staffId: number, index: number) => {
-      RosterModel.add(staffId, date, index + 1);
-    });
+    for (let i = 0; i < staffIds.length; i++) {
+      await RosterModel.add(staffIds[i], date, i + 1);
+    }
 
-    const roster = RosterModel.getByDate(date);
+    const roster = await RosterModel.getByDate(date);
 
     return NextResponse.json({
       success: true,
