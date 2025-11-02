@@ -31,10 +31,7 @@ export interface StaffWithAvailability extends Staff {
 // Staff operations
 export const StaffModel = {
   getAll: (): Staff[] => {
-    console.log('[StaffModel] getAll() called');
-    const result = db.prepare('SELECT * FROM staff ORDER BY name').all() as Staff[];
-    console.log(`[StaffModel] getAll() returned ${result.length} staff`);
-    return result;
+    return db.prepare('SELECT * FROM staff ORDER BY name').all() as Staff[];
   },
 
   getById: (id: number): Staff | undefined => {
@@ -42,19 +39,12 @@ export const StaffModel = {
   },
 
   getByName: (name: string): Staff | undefined => {
-    console.log(`[StaffModel] getByName("${name}") called`);
-    const result = db.prepare('SELECT * FROM staff WHERE name = ?').get(name) as Staff | undefined;
-    console.log(`[StaffModel] getByName("${name}") result:`, result ? `found ID ${result.id}` : 'not found');
-    return result;
+    return db.prepare('SELECT * FROM staff WHERE name = ?').get(name) as Staff | undefined;
   },
 
   create: (name: string, phone?: string): Staff => {
-    console.log(`[StaffModel] create("${name}", "${phone}") called`);
     const result = db.prepare('INSERT INTO staff (name, phone) VALUES (?, ?)').run(name, phone || null);
-    console.log(`[StaffModel] create() INSERT result:`, { changes: result.changes, lastInsertRowid: result.lastInsertRowid });
-    const created = StaffModel.getById(result.lastInsertRowid as number)!;
-    console.log(`[StaffModel] create() verification:`, created);
-    return created;
+    return StaffModel.getById(result.lastInsertRowid as number)!;
   },
 
   update: (id: number, name: string, phone?: string): Staff => {
@@ -111,25 +101,13 @@ export const RosterModel = {
   },
 
   getByStaffId: (staffId: number): string[] => {
-    console.log(`[RosterModel] getByStaffId(${staffId}): Querying roster table...`);
-    const allRoster = db.prepare('SELECT * FROM roster').all() as RosterAssignment[];
-    console.log(`[RosterModel] Total roster entries in DB:`, allRoster.length);
-    console.log(`[RosterModel] All roster entries:`, JSON.stringify(allRoster, null, 2));
-    
     const result = db.prepare('SELECT date FROM roster WHERE staff_id = ? ORDER BY date').all(staffId) as RosterAssignment[];
-    const dates = result.map(r => r.date);
-    console.log(`[RosterModel] getByStaffId(${staffId}): Found ${dates.length} dates:`, dates);
-    console.log(`[RosterModel] Raw query result for staffId ${staffId}:`, result);
-    return dates;
+    return result.map(r => r.date);
   },
 
   add: (staffId: number, date: string, slotNumber: number = 1): RosterAssignment => {
-    console.log(`[RosterModel] add(): Adding staffId=${staffId}, date=${date}, slotNumber=${slotNumber}`);
     const result = db.prepare('INSERT OR REPLACE INTO roster (staff_id, date, slot_number) VALUES (?, ?, ?)').run(staffId, date, slotNumber);
-    console.log(`[RosterModel] add(): INSERT result:`, { changes: result.changes, lastInsertRowid: result.lastInsertRowid });
-    const inserted = db.prepare('SELECT * FROM roster WHERE staff_id = ? AND date = ? AND slot_number = ?').get(staffId, date, slotNumber) as RosterAssignment;
-    console.log(`[RosterModel] add(): Verified insertion:`, inserted);
-    return inserted;
+    return db.prepare('SELECT * FROM roster WHERE staff_id = ? AND date = ? AND slot_number = ?').get(staffId, date, slotNumber) as RosterAssignment;
   },
 
   remove: (staffId: number, date: string, slotNumber?: number): void => {
@@ -159,4 +137,3 @@ export const getStaffWithSchedule = (staffId: number): StaffWithAvailability | n
     scheduledDates,
   };
 };
-

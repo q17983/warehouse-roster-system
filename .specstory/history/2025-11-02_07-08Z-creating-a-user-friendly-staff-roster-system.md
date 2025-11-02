@@ -25353,3 +25353,477 @@ Wait 2 minutes for deployment, then visit that URL and send me the response!
 
 ---
 
+_**User (2025-11-02 09:46Z)**_
+
+{"timestamp":1762084099935,"staffCount":0,"rosterCount":0,"allStaff":[],"databasePath":"/data/roster.db"}
+
+---
+
+_**Agent (model claude-4.5-sonnet-thinking, mode Agent)**_
+
+<think><details><summary>Thought Process</summary>
+The database is completely empty! The test record we inserted in the previous request is gone. This means the database file is being wiped on every deployment.
+
+This is the core issue: The volume is mounted, but either:
+1. The database file is being deleted on each deployment
+2. Each deployment creates a NEW database file
+3. The volume isn't actually persisting data
+
+Since we've seen the volume is mounted at `/data`, and the test proved we CAN write/read in a single request, the issue must be that deployments are wiping the data.
+
+Let me check if there's something in the deployment process that's deleting the database files, or if the initialization is creating a new database every time.
+
+Actually, looking back at the initialization code in lib/init.ts - it calls `initializeDatabase()` which creates tables but shouldn't drop them. The database file should persist.
+
+Wait - I think I see it now. Let me check the Railway logs from earlier. The user showed:
+
+```
+Mounting volume on: /var/lib/containers/railwayapp/bind-mounts/.../vol_j1rf2fn8djkw4kaj
+```
+
+The volume ID keeps changing! Look at all the mount paths in the logs the user has sent:
+- `/var/lib/containers/railwayapp/bind-mounts/78b9cdba-e450-4d99-b1fb-862a9f5cd18c/vol_j1rf2fn8djkw4kaj`
+- `/var/lib/containers/railwayapp/bind-mounts/3b7a2940-5968-40b6-b2fa-9ca90dd51eaa/vol_j1rf2fn8djkw4kaj`
+- `/var/lib/containers/railwayapp/bind-mounts/31e365eb-a1ca-41f6-9cd2-dcf22da9b27a/vol_j1rf2fn8djkw4kaj`
+
+
+- `/var/lib/containers/railwayapp/bind-mounts/79062bb0-d540-4d07-82e1-faa7b8ef1aa4/vol_j1rf2fn8djkw4kaj`
+
+I'm noticing a pattern with these mounting paths. The container's bind mount location shifts between deployments, suggesting potential data persistence problems. While the volume identifier remains consistent, the frequent path changes hint at underlying volume management complexities that could be causing data loss during each deployment cycle.
+
+The mounting mechanism seems unstable, potentially resetting or reinitializing the volume's contents every time the container redeploys. This could explain why our database keeps getting wiped, despite appearing to have a persistent volume.
+
+I'll investigate the filesystem to confirm whether the original database files are actually preserved between deployments.</details></think>
+
+---
+
+🚨 **THE DATABASE WAS WIPED!**
+
+`staffCount: 0` - The test record we inserted is GONE.
+
+**This means: Every deployment deletes the database files!**
+
+---
+
+## The Root Cause
+
+Looking at your logs, I see the volume mount path keeps changing with each deployment:
+- First: `/var/lib/.../78b9cdba-.../vol_j1rf2fn8djkw4kaj`
+- Then: `/var/lib/.../3b7a2940-.../vol_j1rf2fn8djkw4kaj`
+- Then: `/var/lib/.../31e365eb-.../vol_j1rf2fn8djkw4kaj`
+- Now: `/var/lib/.../79062bb0-.../vol_j1rf2fn8djkw4kaj`
+
+The volume ID `vol_j1rf2fn8djkw4kaj` is the same, but **each deployment might be getting a fresh copy** or the database files are being deleted during deployment.
+
+---
+
+## Check Filesystem
+
+Let me check if old files exist:
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/app/api/debug/filesystem/route.ts</summary>
+
+**Chunk 1**
+Lines added: 1, lines removed: undefined
+
+```diff
+@@ -51,4 +51,5 @@
+          results.databaseFile.modified = stats.mtime;
+          results.databaseFile.created = stats.birthtime;
++         results.databaseFile.ageMinutes = (Date.now() - stats.mtime.getTime()) / 1000 / 60;
+        }
+        
+```
+
+**Chunk 2**
+Lines added: 13, lines removed: undefined
+
+```diff
+@@ -61,4 +62,17 @@
+          results.databaseFile.walSize = walStats.size;
+        }
++       
++       // Check for any old database files
++       const dataFiles = fs.readdirSync(&#39;/data&#39;);
++       results.databaseFile.allFilesInData = dataFiles.map(f =&gt; {
++         const fullPath = &#96;/data/${f}&#96;;
++         const stats = fs.statSync(fullPath);
++         return {
++           name: f,
++           size: stats.size,
++           modified: stats.mtime,
++           ageMinutes: (Date.now() - stats.mtime.getTime()) / 1000 / 60,
++         };
++       });
+      } catch (error: any) {
+        results.databaseFile.error = error.message;
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Add file age info to filesystem debug" && git push</summary>
+
+```bash
+cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Add file age info to filesystem debug" && git push
+```
+
+```
+[main 8c44570] Add file age info to filesystem debug
+ Committer: Your Name &lt;sai@SAIdeMacBook-Air.local&gt;
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name &quot;Your Name&quot;
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 2 files changed, 162 insertions(+)
+To https://github.com/q17983/warehouse-roster-system.git
+   20205e9..8c44570  main -&gt; main
+
+```
+</details>
+</tool-use>
+
+---
+
+<think><details><summary>Thought Process</summary>
+The user is getting frustrated, and rightfully so. We've been going in circles. Let me think about what we know:
+
+1. Local environment works perfectly
+2. Railway shows data is being written (INSERT results show success)
+3. But reads return empty
+4. The checkpoint once showed 6 staff, then they disappeared
+5. The test record disappeared between requests
+
+This strongly suggests the database file is being recreated or wiped on each deployment or possibly on each request.
+
+Let me just wait for the deployment and check the filesystem to see the file ages.</details></think>
+
+---
+
+After deployment (~2 minutes), we'll check the file system to see when the database files were created.
+
+## Do This After Deployment:
+
+### 1. Check Filesystem
+Visit: `https://warehouse-roster-system-production.up.railway.app/api/debug/filesystem`
+
+This will show:
+- `ageMinutes` - how old each file is
+- All files in `/data` directory
+
+**If the database file is only a few seconds old, it's being recreated on each deployment.**
+
+### 2. Check DB State  
+Visit: `https://warehouse-roster-system-production.up.railway.app/api/debug/db-state`
+
+This shows current data without caching issues.
+
+---
+
+**Wait 2 minutes, then visit both URLs and send me the JSON responses.** This will tell us if the database files survive between deployments or get wiped.
+
+---
+
+_**User (2025-11-02 09:46Z)**_
+
+nononon we wasted too much time here, keep waiting for 2 mins for nothing. please summaries all the details and 
+
+, as i dont think we are going to a right directly, you have the idea and you have all the setting, i need you to completely rewrite the code base on the successsful local coding and redeploy to railway, we need something new defintiely
+
+
+---
+
+_**Agent (model claude-4.5-sonnet-thinking, mode Agent)**_
+
+<think><details><summary>Thought Process</summary>
+The user is frustrated and right to be - we've been troubleshooting for too long. They want me to:
+1. Start fresh with the working local code
+2. Rewrite/simplify the entire codebase
+3. Deploy to Railway properly
+
+Let me think about what works locally vs what's failing on Railway:
+
+LOCAL (WORKS):
+- SQLite with DELETE mode
+- All APIs work
+- Data persists
+- Everything is simple
+
+RAILWAY (FAILS):
+- Same code, but data doesn't persist between API calls
+- Volume is mounted but data disappears
+- Multiple database instances or file system issues
+
+The core issue seems to be that Railway's containerized environment has some quirk with SQLite that we haven't solved. 
+
+Instead of continuing to debug, I should:
+1. Simplify everything
+2. Remove all the debug endpoints
+3. Make the database code as simple as possible
+4. Ensure it works locally first
+5. Then deploy fresh to Railway
+
+Let me create a clean, simple version.</details></think>
+
+---
+
+You're absolutely right. Let me start completely fresh with a simple, working solution.
+
+## 🎯 New Plan: Simple & Clean
+
+I'll rebuild the core database functionality to be bulletproof and simple. No more debugging complexity.
+
+---
+
+<tool-use data-tool-type="generic" data-tool-name="todo_write">
+<details><summary>Tool use: **todo_write** • Todo List</summary>
+
+- [-] Create clean, simple database module with proper SQLite configuration
+- [ ] Remove all debug endpoints and excessive logging
+- [ ] Test locally to ensure everything works
+- [ ] Deploy to Railway with clean build
+- [ ] Verify data persists on Railway after fresh deployment
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="write">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/lib/database.ts</summary>
+
+**Chunk 1**
+Lines added: 13, lines removed: 84
+
+```diff
+@@ -3,92 +3,21 @@
+  import fs from &#39;fs&#39;;
+  
+- // Get database path from environment or use default
+  const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), &#39;roster.db&#39;);
+- 
+- // Log database path for debugging (especially on Railway)
+- console.log(&#39;[Database] Initializing database at:&#39;, dbPath);
+- console.log(&#39;[Database] DATABASE_PATH env:&#39;, process.env.DATABASE_PATH || &#39;not set (using default)&#39;);
+- 
+- // Ensure directory exists (important for Railway volumes)
+  const dbDir = path.dirname(dbPath);
+- console.log(&#96;[Database] Database directory: ${dbDir}&#96;);
+- console.log(&#96;[Database] Directory exists: ${fs.existsSync(dbDir)}&#96;);
+  
+- if (dbDir &amp;&amp; !fs.existsSync(dbDir)) {
+-   try {
+-     fs.mkdirSync(dbDir, { recursive: true });
+-     console.log(&#39;[Database] Created directory:&#39;, dbDir);
+-   } catch (mkdirError: any) {
+-     console.error(&#39;[Database] Failed to create directory:&#39;, mkdirError);
+-     throw new Error(&#96;Cannot create database directory: ${dbDir}. Error: ${mkdirError.message}&#96;);
+-   }
+- }
+- 
+- // Log directory stats if it exists
+- if (fs.existsSync(dbDir)) {
+-   try {
+-     const stats = fs.statSync(dbDir);
+-     console.log(&#96;[Database] Directory stats: mode=${stats.mode.toString(8)}, writable=${(stats.mode &amp; parseInt(&#39;200&#39;, 8)) !== 0}&#96;);
+-   } catch (statError) {
+-     console.warn(&#39;[Database] Could not get directory stats:&#39;, statError);
+-   }
+- }
+- 
+- // Use global singleton to ensure only ONE database instance across all API routes
+- // This is critical for Next.js serverless functions
+- declare global {
+-   var __database: Database.Database | undefined;
+- }
+- 
+- let db: Database.Database;
+- 
+- if (!global.__database) {
+-   console.log(&#39;[Database] Creating NEW database instance&#39;);
+-   try {
+-     // Check if database file exists
+-     const dbExists = fs.existsSync(dbPath);
+-     console.log(&#96;[Database] Database file exists: ${dbExists} at ${dbPath}&#96;);
+-     
+-     // Check directory permissions
+-     try {
+-       const dbDir = path.dirname(dbPath);
+-       fs.accessSync(dbDir, fs.constants.W_OK);
+-       console.log(&#96;[Database] Directory is writable: ${dbDir}&#96;);
+-     } catch (dirError) {
+-       console.error(&#96;[Database] Directory permission error:&#96;, dirError);
+-     }
+-     
+-     db = new Database(dbPath, { 
+-       fileMustExist: false,
+-     });
+-     console.log(&#39;[Database] Database opened successfully&#39;);
+-     
+-     // Use DELETE mode for simplicity and immediate consistency
+-     // This is slower but guarantees all reads/writes are instantly visible
+-     db.pragma(&#39;journal_mode = DELETE&#39;);
+-     db.pragma(&#39;synchronous = FULL&#39;);
+-     console.log(&#39;[Database] Set journal_mode=DELETE, synchronous=FULL for immediate consistency&#39;);
+-     
+-     // Verify we can write to the database
+-     db.prepare(&#39;SELECT 1&#39;).get();
+-     console.log(&#39;[Database] Database read/write test passed&#39;);
+-     
+-     // Store in global to reuse across API routes
+-     global.__database = db;
+-     console.log(&#39;[Database] Stored in global cache&#39;);
+-   } catch (error) {
+-     console.error(&#39;[Database] Failed to open database:&#39;, error);
+-     console.error(&#39;[Database] dbPath was:&#39;, dbPath);
+-     console.error(&#39;[Database] Current working directory:&#39;, process.cwd());
+-     throw error;
+-   }
+- } else {
+-   console.log(&#39;[Database] Reusing EXISTING database instance from global cache&#39;);
+-   db = global.__database;
+- }
+- 
+- // Initialize database tables
++ // Ensure directory exists
++ if (!fs.existsSync(dbDir)) {
++   fs.mkdirSync(dbDir, { recursive: true });
++ }
++ 
++ // Create or open database
++ const db = new Database(dbPath);
++ 
++ // Simple configuration for reliability
++ db.pragma(&#39;journal_mode = DELETE&#39;);
++ db.pragma(&#39;synchronous = FULL&#39;);
++ 
++ // Initialize tables
+  export function initializeDatabase() {
+-   // Master staff list table
+    db.exec(&#96;
+      CREATE TABLE IF NOT EXISTS staff (
+```
+
+**Chunk 2**
+Lines added: undefined, lines removed: 1
+
+```diff
+@@ -101,5 +30,4 @@
+    &#96;);
+  
+-   // Availability table - clean list of who is available on what day
+    db.exec(&#96;
+      CREATE TABLE IF NOT EXISTS availability (
+```
+
+**Chunk 3**
+Lines added: undefined, lines removed: 1
+
+```diff
+@@ -113,5 +41,4 @@
+    &#96;);
+  
+-   // Roster assignments - what the leader has planned
+    db.exec(&#96;
+      CREATE TABLE IF NOT EXISTS roster (
+```
+
+**Chunk 4**
+Lines added: undefined, lines removed: 1
+
+```diff
+@@ -126,5 +53,4 @@
+    &#96;);
+  
+-   // Create indexes for better performance
+    db.exec(&#96;
+      CREATE INDEX IF NOT EXISTS idx_availability_date ON availability(date);
+```
+
+**Chunk 5**
+Lines added: undefined, lines removed: 16
+
+```diff
+@@ -133,22 +59,6 @@
+      CREATE INDEX IF NOT EXISTS idx_roster_staff ON roster(staff_id);
+    &#96;);
+-   
+-   console.log(&#39;[Database] Tables and indexes created/verified&#39;);
+- }
+- 
+- // Helper function to ensure data is synced to disk
+- export function syncDatabase() {
+-   try {
+-     // In DELETE mode, no WAL to checkpoint, data is immediately on disk
+-     // Just verify the data is there
+-     const staffCount = db.prepare(&#39;SELECT COUNT(*) as count FROM staff&#39;).get() as { count: number };
+-     const rosterCount = db.prepare(&#39;SELECT COUNT(*) as count FROM roster&#39;).get() as { count: number };
+-     console.log(&#39;[Database] Sync verification - staff:&#39;, staffCount.count, &#39;roster:&#39;, rosterCount.count);
+-   } catch (error) {
+-     console.error(&#39;[Database] Sync error:&#39;, error);
+-   }
+  }
+  
+  export default db;
+- 
+  
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="unknown" data-tool-name="write">
+<details>
+<summary>Tool use: **write**</summary>
+
+
+Parameters:
+
+```json
+{
+  &quot;relativeWorkspacePath&quot;: &quot;/Users/sai/Warehouse management/lib/models.ts&quot;,
+  &quot;code&quot;: {
+    &quot;code&quot;: &quot;import db from &#39;./database&#39;;\n\nexport interface Staff {\n  &quot;
+  }
+}
+```
+Additional data:
+
+```json
+{
+  &quot;codeblockId&quot;: &quot;5b8a9b2b-71c1-4c3a-98d1-594e43d2ca03&quot;
+}
+```
+User decision: **accepted**
+
+Status: **loading**
+
+
+</details>
+</tool-use>
+
+---
+
+
+
+---
+
