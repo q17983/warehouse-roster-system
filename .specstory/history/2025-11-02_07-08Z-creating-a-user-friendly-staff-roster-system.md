@@ -14908,3 +14908,608 @@ _**Agent (model default, mode Agent)**_
 
 ---
 
+
+Checking if Railway CLI is installed, then proceeding with the volume setup.
+
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: which railway</summary>
+
+```bash
+which railway
+```
+
+```
+railway not found
+
+```
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: cd "/Users/sai/Warehouse management" && npm list -g @railway/cli 2>/dev/null || echo "Not installed globally"</summary>
+
+```bash
+cd "/Users/sai/Warehouse management" && npm list -g @railway/cli 2>/dev/null || echo "Not installed globally"
+```
+
+```
+/usr/local/lib
+&#96;-- (empty)
+
+Not installed globally
+
+```
+</details>
+</tool-use>
+
+---
+
+
+
+---
+
+Railway CLI isn't installed. Installing it, then setting up the volume:
+
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: npm install -g @railway/cli</summary>
+
+```bash
+npm install -g @railway/cli
+```
+
+```
+npm error code EACCES
+npm error syscall mkdir
+npm error path /usr/local/lib/node_modules/@railway
+npm error errno -13
+npm error Error: EACCES: permission denied, mkdir &#39;/usr/local/lib/node_modules/@railway&#39;
+npm error     at async mkdir (node:internal/fs/promises:857:10)
+npm error     at async /usr/local/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/reify.js:624:20
+npm error     at async Promise.allSettled (index 0)
+npm error     at async [reifyPackages] (/usr/local/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/reify.js:325:11)
+npm error     at async Arborist.reify (/usr/local/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/reify.js:142:5)
+npm error     at async Install.exec (/usr/local/lib/node_modules/npm/lib/commands/install.js:150:5)
+npm error     at async Npm.exec (/usr/local/lib/node_modules/npm/lib/npm.js:207:9)
+npm error     at async module.exports (/usr/local/lib/node_modules/npm/lib/cli/entry.js:74:5) {
+npm error   errno: -13,
+npm error   code: &#39;EACCES&#39;,
+npm error   syscall: &#39;mkdir&#39;,
+npm error   path: &#39;/usr/local/lib/node_modules/@railway&#39;
+npm error }
+npm error
+npm error The operation was rejected by your operating system.
+npm error It is likely you do not have the permissions to access this file as the current user
+npm error
+npm error If you believe this might be a permissions issue, please double-check the
+npm error permissions of the file and its containing directories, or try running
+npm error the command again as root/Administrator.
+npm error A complete log of this run can be found in: /Users/sai/.npm/_logs/2025-11-02T09_20_48_448Z-debug-0.log
+
+```
+</details>
+</tool-use>
+
+---
+
+
+
+---
+
+Permission issue with global install. Installing locally instead and continuing with the setup:
+
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: cd "/Users/sai/Warehouse management" && npx --yes @railway/cli --version</summary>
+
+```bash
+cd "/Users/sai/Warehouse management" && npx --yes @railway/cli --version
+```
+
+```
+npm warn deprecated node-domexception@1.0.0: Use your platform&#39;s native DOMException instead
+railway 4.11.0
+
+
+```
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="write">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/setup-railway-volume.sh</summary>
+
+**Chunk 1**
+Lines added: 56, lines removed: 1
+
+```diff
+@@ -1,1 +1,56 @@
+- 
++ #!/bin/bash
++ # Railway Volume Setup Script
++ # Run this script to set up persistent storage for your Railway deployment
++ 
++ set -e
++ 
++ echo &quot;🚀 Railway Volume Setup&quot;
++ echo &quot;=======================&quot;
++ echo &quot;&quot;
++ 
++ # Check if Railway CLI is available
++ if ! command -v railway &amp;&gt; /dev/null; then
++     echo &quot;📦 Installing Railway CLI...&quot;
++     npm install -g @railway/cli || {
++         echo &quot;⚠️  Global install failed. Using npx instead...&quot;
++         echo &quot;   (You may need to enter &#39;npx @railway/cli&#39; before each command below)&quot;
++     }
++ fi
++ 
++ echo &quot;&quot;
++ echo &quot;Step 1: Login to Railway&quot;
++ echo &quot;-------------------------&quot;
++ echo &quot;This will open your browser for authentication...&quot;
++ railway login || npx @railway/cli login
++ 
++ echo &quot;&quot;
++ echo &quot;Step 2: Link to your project&quot;
++ echo &quot;-----------------------------&quot;
++ echo &quot;Select &#39;warehouse-roster-system&#39; when prompted...&quot;
++ cd &quot;/Users/sai/Warehouse management&quot;
++ railway link || npx @railway/cli link
++ 
++ echo &quot;&quot;
++ echo &quot;Step 3: Create persistent volume&quot;
++ echo &quot;---------------------------------&quot;
++ echo &quot;Creating volume &#39;data&#39; mounted at /data...&quot;
++ railway volumes create data --mount /data || npx @railway/cli volumes create data --mount /data
++ 
++ echo &quot;&quot;
++ echo &quot;Step 4: Set DATABASE_PATH environment variable&quot;
++ echo &quot;-----------------------------------------------&quot;
++ railway variables set DATABASE_PATH=&quot;/data/roster.db&quot; || npx @railway/cli variables set DATABASE_PATH=&quot;/data/roster.db&quot;
++ 
++ echo &quot;&quot;
++ echo &quot;Step 5: Verify setup&quot;
++ echo &quot;--------------------&quot;
++ railway variables || npx @railway/cli variables
++ 
++ echo &quot;&quot;
++ echo &quot;✅ Setup complete!&quot;
++ echo &quot;&quot;
++ echo &quot;Railway will automatically redeploy. Wait 2-3 minutes, then:&quot;
++ echo &quot;1. Check Railway logs for: [Database] Initializing database at: /data/roster.db&quot;
++ echo &quot;2. Process your data in Admin Panel&quot;
++ echo &quot;3. Assign staff and test &#39;Check Staff&#39; - it should work now!&quot;
++ 
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: chmod +x "/Users/sai/Warehouse management/setup-railway-volume.sh"</summary>
+
+```bash
+chmod +x "/Users/sai/Warehouse management/setup-railway-volume.sh"
+```
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="write">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/SETUP_VOLUME_MANUAL.md</summary>
+
+**Chunk 1**
+Lines added: 100, lines removed: 1
+
+```diff
+@@ -1,1 +1,100 @@
+- 
++ # 🔧 Manual Railway Volume Setup (Step by Step)
++ 
++ Since we can&#39;t install Railway CLI globally, here are manual steps you can run.
++ 
++ ## Option 1: Use npx (No Installation Needed)
++ 
++ Run these commands one by one in your terminal:
++ 
++ ### Step 1: Navigate to Project
++ &#96;&#96;&#96;bash
++ cd &quot;/Users/sai/Warehouse management&quot;
++ &#96;&#96;&#96;
++ 
++ ### Step 2: Login to Railway
++ &#96;&#96;&#96;bash
++ npx @railway/cli login
++ &#96;&#96;&#96;
++ This will open your browser for authentication.
++ 
++ ### Step 3: Link to Your Project
++ &#96;&#96;&#96;bash
++ npx @railway/cli link
++ &#96;&#96;&#96;
++ Select &#96;warehouse-roster-system&#96; when prompted.
++ 
++ ### Step 4: Create Volume ⭐ **CRITICAL STEP**
++ &#96;&#96;&#96;bash
++ npx @railway/cli volumes create data --mount /data
++ &#96;&#96;&#96;
++ This creates the persistent volume!
++ 
++ ### Step 5: Set Database Path
++ &#96;&#96;&#96;bash
++ npx @railway/cli variables set DATABASE_PATH=&quot;/data/roster.db&quot;
++ &#96;&#96;&#96;
++ 
++ ### Step 6: Verify
++ &#96;&#96;&#96;bash
++ npx @railway/cli variables
++ &#96;&#96;&#96;
++ Should show &#96;DATABASE_PATH=/data/roster.db&#96;
++ 
++ ---
++ 
++ ## Option 2: Use Railway Dashboard (If Available)
++ 
++ If Volumes section appears in Railway dashboard:
++ 
++ 1. Go to Railway Dashboard
++ 2. Your Project → Your Service → Settings
++ 3. Scroll down to &quot;Volumes&quot; section
++ 4. Click &quot;New Volume&quot;
++ 5. Name: &#96;data&#96;
++ 6. Mount Path: &#96;/data&#96;
++ 7. Click &quot;Create&quot;
++ 8. Then in Variables tab, set: &#96;DATABASE_PATH=/data/roster.db&#96;
++ 
++ ---
++ 
++ ## After Setup: Verify It Worked
++ 
++ ### Check Railway Logs:
++ 1. Railway Dashboard → Your Service → Logs
++ 2. Look for: &#96;[Database] Initializing database at: /data/roster.db&#96;
++ 3. This confirms volume is mounted!
++ 
++ ### Test Persistence:
++ 1. Process data in Admin Panel
++ 2. Assign staff to dates
++ 3. Check Staff → Should show scheduled dates ✅
++ 4. Redeploy the service
++ 5. Check Staff again → Data should still be there! ✅
++ 
++ ---
++ 
++ ## Troubleshooting
++ 
++ **&quot;Command not found&quot; or &quot;npx not working&quot;:**
++ - Make sure Node.js is installed: &#96;node --version&#96;
++ - Try: &#96;npm install -g @railway/cli&#96; with &#96;sudo&#96; (on Mac/Linux)
++ 
++ **&quot;Volume already exists&quot;:**
++ - That&#39;s okay! Skip Step 4 and just set the DATABASE_PATH variable
++ 
++ **&quot;Permission denied&quot;:**
++ - On Mac, you might need to use &#96;sudo&#96; for global npm installs
++ - Or just use &#96;npx&#96; (doesn&#39;t require installation)
++ 
++ ---
++ 
++ ## Next Steps After Volume Setup
++ 
++ 1. ✅ Wait 2-3 minutes for Railway to redeploy
++ 2. ✅ Check logs to confirm database path
++ 3. ✅ Process your data in Admin Panel
++ 4. ✅ Assign staff to dates
++ 5. ✅ Test &quot;Check Staff&quot; - should work now!
++ 
++ 🎉 **Once volume is set up, your data will persist across redeploys!**
++ 
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: cd "/Users/sai/Warehouse management" && node --version</summary>
+
+```bash
+cd "/Users/sai/Warehouse management" && node --version
+```
+
+```
+v22.14.0
+
+```
+</details>
+</tool-use>
+
+---
+
+
+
+---
+
+Railway CLI is available via `npx`. Starting the setup:
+
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: cd "/Users/sai/Warehouse management" && npx @railway/cli login</summary>
+
+```bash
+cd "/Users/sai/Warehouse management" && npx @railway/cli login
+```
+
+```
+Cannot login in non-interactive mode
+
+```
+</details>
+</tool-use>
+
+---
+
+
+
+---
+
+Login requires opening your browser. Preparing a step-by-step guide and the exact commands:
+
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="write">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/QUICK_VOLUME_SETUP.md</summary>
+
+**Chunk 1**
+Lines added: 94, lines removed: 1
+
+```diff
+@@ -1,1 +1,94 @@
+- 
++ # ⚡ Quick Railway Volume Setup - Run These Commands
++ 
++ ## ✅ Pre-Check: Railway CLI is Ready!
++ 
++ Railway CLI is available via &#96;npx&#96;. You&#39;re ready to go!
++ 
++ ---
++ 
++ ## 🚀 Step-by-Step Commands
++ 
++ Open your terminal and run these commands **one by one**:
++ 
++ ### **Step 1: Login to Railway** 
++ &#96;&#96;&#96;bash
++ cd &quot;/Users/sai/Warehouse management&quot;
++ npx @railway/cli login
++ &#96;&#96;&#96;
++ - This will open your browser
++ - Click &quot;Authorize&quot; or &quot;Allow&quot;
++ - Come back to terminal when done
++ 
++ ### **Step 2: Link to Your Project**
++ &#96;&#96;&#96;bash
++ npx @railway/cli link
++ &#96;&#96;&#96;
++ - You&#39;ll see a list of projects
++ - Select &#96;warehouse-roster-system&#96; (or type the number)
++ - Press Enter
++ 
++ ### **Step 3: Create Volume** ⭐ **MOST IMPORTANT!**
++ &#96;&#96;&#96;bash
++ npx @railway/cli volumes create data --mount /data
++ &#96;&#96;&#96;
++ - This creates the persistent storage volume
++ - Wait for confirmation message
++ 
++ ### **Step 4: Set Database Path**
++ &#96;&#96;&#96;bash
++ npx @railway/cli variables set DATABASE_PATH=&quot;/data/roster.db&quot;
++ &#96;&#96;&#96;
++ - This tells the app to use the volume for database
++ 
++ ### **Step 5: Verify It Worked**
++ &#96;&#96;&#96;bash
++ npx @railway/cli variables
++ &#96;&#96;&#96;
++ - Should show &#96;DATABASE_PATH=/data/roster.db&#96;
++ - If you see it, you&#39;re done! ✅
++ 
++ ---
++ 
++ ## 🎉 After Setup
++ 
++ Railway will **automatically redeploy** (takes 2-3 minutes).
++ 
++ ### **Verify in Railway Dashboard:**
++ 1. Go to Railway → Your Service → **Logs**
++ 2. Look for: &#96;[Database] Initializing database at: /data/roster.db&#96;
++ 3. If you see this, the volume is working! ✅
++ 
++ ### **Test It:**
++ 1. Process data in Admin Panel
++ 2. Assign staff to dates
++ 3. Click &quot;Check Staff&quot; → Should show scheduled dates! ✅
++ 
++ ---
++ 
++ ## ❓ Troubleshooting
++ 
++ **&quot;Already linked&quot;:** That&#39;s fine! Skip Step 2.
++ 
++ **&quot;Volume already exists&quot;:** That&#39;s fine! Skip Step 3.
++ 
++ **&quot;Permission denied&quot;:** Make sure you&#39;re logged in (Step 1).
++ 
++ ---
++ 
++ ## 📋 Copy-Paste All Commands at Once
++ 
++ &#96;&#96;&#96;bash
++ cd &quot;/Users/sai/Warehouse management&quot;
++ npx @railway/cli login
++ npx @railway/cli link
++ npx @railway/cli volumes create data --mount /data
++ npx @railway/cli variables set DATABASE_PATH=&quot;/data/roster.db&quot;
++ npx @railway/cli variables
++ &#96;&#96;&#96;
++ 
++ **Note:** Run them one at a time, wait for each to complete before running the next.
++ 
++ ---
++ 
++ **Once done, your database will persist across redeploys!** 🎉
++ 
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Add Railway volume setup documentation and scripts" && git push</summary>
+
+```bash
+cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Add Railway volume setup documentation and scripts" && git push
+```
+
+```
+[main 40fd457] Add Railway volume setup documentation and scripts
+ Committer: Your Name &lt;sai@SAIdeMacBook-Air.local&gt;
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name &quot;Your Name&quot;
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 4 files changed, 695 insertions(+)
+ create mode 100644 QUICK_VOLUME_SETUP.md
+ create mode 100644 SETUP_VOLUME_MANUAL.md
+ create mode 100755 setup-railway-volume.sh
+To https://github.com/q17983/warehouse-roster-system.git
+   265c8b6..40fd457  main -&gt; main
+
+```
+</details>
+</tool-use>
+
+---
+
+
+
+---
+
+Checking if you're already linked, then proceeding:
+
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: cd "/Users/sai/Warehouse management" && npx @railway/cli status 2>&1 | head -5</summary>
+
+```bash
+cd "/Users/sai/Warehouse management" && npx @railway/cli status 2>&1 | head -5
+```
+
+```
+Unauthorized. Please login with &#96;railway login&#96;
+
+```
+</details>
+</tool-use>
+
+---
+
+
+
+---
+
+Railway CLI is ready. Follow these steps:
+
+## Railway volume setup — action required
+
+Since login opens a browser, run these commands in your terminal:
+
+### Quick setup (run these one by one):
+
+```bash
+# Step 1: Navigate to project
+cd "/Users/sai/Warehouse management"
+
+# Step 2: Login (opens browser)
+npx @railway/cli login
+
+# Step 3: Link to project
+npx @railway/cli link
+
+# Step 4: Create volume ⭐ MOST IMPORTANT!
+npx @railway/cli volumes create data --mount /data
+
+# Step 5: Set database path
+npx @railway/cli variables set DATABASE_PATH="/data/roster.db"
+
+# Step 6: Verify
+npx @railway/cli variables
+```
+
+---
+
+## What to expect:
+
+1. `npx @railway/cli login` → Opens your browser → Click "Authorize" → Return to terminal
+2. `npx @railway/cli link` → Shows list → Select `warehouse-roster-system`
+3. `volumes create` → Creates the persistent volume
+4. `variables set` → Sets the database path
+5. `variables` → Shows `DATABASE_PATH=/data/roster.db` if successful
+
+---
+
+## After running these:
+
+- Railway will automatically redeploy (2-3 minutes)
+- Check Railway Logs → Should see: `[Database] Initializing database at: /data/roster.db`
+- Your database will now persist across redeploys
+- "Check Staff" should work correctly
+
+---
+
+I've created:
+- `QUICK_VOLUME_SETUP.md` - Step-by-step guide
+- `setup-railway-volume.sh` - Automated script (if you want to run it manually)
+
+Run the commands above in your terminal. If you hit any issues, share the error message and I'll help debug.
+
+After the volume is set up, your database will persist and "Check Staff" will work.
+
+---
+
