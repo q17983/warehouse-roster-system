@@ -21,36 +21,34 @@ export async function processCleanData(cleanData: CleanDataResponse): Promise<{ 
     }
   }
 
-  // Clear old availability for next week
-  const nextWeekDates = getNextWeekDates();
-  for (const date of nextWeekDates) {
-    await AvailabilityModel.clearForDate(date);
-  }
-
-  // Sync availability (only for next week, latest submission only)
+  // Process availability - keep WHATEVER dates staff submitted (no filtering)
+  // Group by staff to ensure latest submission only
   const staffAvailabilityMap = new Map<string, Set<string>>();
   
   for (const availability of cleanData.availability) {
-    if (isInNextWeek(availability.date)) {
-      const staff = await StaffModel.getByName(availability.staffName);
-      if (staff) {
-        if (!staffAvailabilityMap.has(availability.staffName)) {
-          staffAvailabilityMap.set(availability.staffName, new Set());
-        }
-        staffAvailabilityMap.get(availability.staffName)!.add(availability.date);
+    const staff = await StaffModel.getByName(availability.staffName);
+    if (staff) {
+      if (!staffAvailabilityMap.has(availability.staffName)) {
+        staffAvailabilityMap.set(availability.staffName, new Set());
       }
+      staffAvailabilityMap.get(availability.staffName)!.add(availability.date);
     }
   }
   
-  // Add latest availability
+  // Clear each staff's old availability, then add their latest
   let availabilityCount = 0;
   for (const [staffName, dates] of staffAvailabilityMap.entries()) {
     const staff = await StaffModel.getByName(staffName);
     if (staff) {
-      for (const date of nextWeekDates) {
-        await AvailabilityModel.remove(staff.id, date);
+      // Get all existing availability for this staff
+      const existingDates = await AvailabilityModel.getByStaffId(staff.id);
+      
+      // Remove old availability
+      for (const oldDate of existingDates) {
+        await AvailabilityModel.remove(staff.id, oldDate);
       }
       
+      // Add their latest availability (whatever dates they submitted)
       for (const date of dates) {
         await AvailabilityModel.add(staff.id, date);
         availabilityCount++;
