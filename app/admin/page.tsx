@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import StaffManagement from './components/StaffManagement';
 import styles from './admin.module.css';
 
@@ -9,6 +9,26 @@ export default function AdminPanel() {
   const [result, setResult] = useState<{ success: boolean; message: string; stats?: any; timestamp?: string } | null>(null);
   const [webAppUrl, setWebAppUrl] = useState('');
   const [csvUrl, setCsvUrl] = useState('');
+  const [configLoaded, setConfigLoaded] = useState(false);
+
+  // Load pre-configured URLs from environment on mount
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const response = await fetch('/api/config');
+        const data = await response.json();
+        if (data.success) {
+          if (data.webAppUrl) setWebAppUrl(data.webAppUrl);
+          if (data.csvUrl) setCsvUrl(data.csvUrl);
+          setConfigLoaded(true);
+        }
+      } catch (error) {
+        console.error('Failed to load config:', error);
+        setConfigLoaded(true); // Still mark as loaded to show form
+      }
+    };
+    loadConfig();
+  }, []);
 
   const handleProcessData = async () => {
     setProcessing(true);
@@ -61,7 +81,9 @@ export default function AdminPanel() {
             className={styles.input}
           />
           <small style={{ color: '#666', display: 'block', marginTop: '0.5rem' }}>
-            Leave empty if using environment variable APPS_SCRIPT_WEB_APP_URL
+            {configLoaded && webAppUrl 
+              ? '✓ Pre-filled from environment variable. You can edit if needed.' 
+              : 'Leave empty if using environment variable APPS_SCRIPT_WEB_APP_URL'}
           </small>
         </div>
 
@@ -76,7 +98,9 @@ export default function AdminPanel() {
             className={styles.input}
           />
           <small style={{ color: '#666', display: 'block', marginTop: '0.5rem' }}>
-            Leave empty if using environment variable GOOGLE_SHEETS_CSV_URL
+            {configLoaded && csvUrl 
+              ? '✓ Pre-filled from environment variable. You can edit if needed.' 
+              : 'Leave empty if using environment variable GOOGLE_SHEETS_CSV_URL'}
           </small>
         </div>
 

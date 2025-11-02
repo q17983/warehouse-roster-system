@@ -5,13 +5,25 @@ import fs from 'fs';
 // Get database path from environment or use default
 const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), 'roster.db');
 
+// Log database path for debugging (especially on Railway)
+console.log('[Database] Initializing database at:', dbPath);
+console.log('[Database] DATABASE_PATH env:', process.env.DATABASE_PATH || 'not set (using default)');
+
 // Ensure directory exists (important for Railway volumes)
 const dbDir = path.dirname(dbPath);
 if (dbDir && !fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
+  console.log('[Database] Created directory:', dbDir);
 }
 
-const db = new Database(dbPath);
+let db: Database.Database;
+try {
+  db = new Database(dbPath);
+  console.log('[Database] Database opened successfully');
+} catch (error) {
+  console.error('[Database] Failed to open database:', error);
+  throw error;
+}
 
 // Initialize database tables
 export function initializeDatabase() {
