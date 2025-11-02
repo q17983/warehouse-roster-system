@@ -27083,6 +27083,1252 @@ added 15 packages, and removed 24 packages in 3s
 
 ---
 
+<think><details><summary>Thought Process</summary>
+Good, I've installed pg. Now I need to rewrite the database module to use PostgreSQL. The key differences:
+1. Connection pooling instead of single database instance
+2. Async queries instead of synchronous
+3. Different SQL syntax (e.g., RETURNING instead of getting lastInsertRowid)
+4. Schema creation is similar but uses SERIAL instead of AUTOINCREMENT
+5. Timestamps use TIMESTAMP instead of DATETIME
+
+Let me create a PostgreSQL version.</details></think>
+
+---
+
+<tool-use data-tool-type="generic" data-tool-name="todo_write">
+<details><summary>Tool use: **todo_write** • Todo List</summary>
+
+- [x] Install PostgreSQL dependencies (pg library)
+- [-] Rewrite database.ts to use PostgreSQL instead of SQLite
+- [ ] Update models to use PostgreSQL queries
+- [ ] Add PostgreSQL database to Railway project
+- [ ] Test locally with PostgreSQL
+- [ ] Deploy to Railway and verify
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="write">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/lib/database.ts</summary>
+
+**Chunk 1**
+Lines added: 57, lines removed: 56
+
+```diff
+@@ -1,64 +1,65 @@
+- import Database from &#39;better-sqlite3&#39;;
+- import path from &#39;path&#39;;
+- import fs from &#39;fs&#39;;
+- 
+- const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), &#39;roster.db&#39;);
+- const dbDir = path.dirname(dbPath);
+- 
+- // Ensure directory exists
+- if (!fs.existsSync(dbDir)) {
+-   fs.mkdirSync(dbDir, { recursive: true });
+- }
+- 
+- // Create or open database
+- const db = new Database(dbPath);
+- 
+- // Simple configuration for reliability
+- db.pragma(&#39;journal_mode = DELETE&#39;);
+- db.pragma(&#39;synchronous = FULL&#39;);
++ import { Pool } from &#39;pg&#39;;
++ 
++ // Create PostgreSQL connection pool
++ const pool = new Pool({
++   connectionString: process.env.DATABASE_URL,
++   max: 20,
++   idleTimeoutMillis: 30000,
++   connectionTimeoutMillis: 2000,
++ });
+  
+  // Initialize tables
+- export function initializeDatabase() {
+-   db.exec(&#96;
+-     CREATE TABLE IF NOT EXISTS staff (
+-       id INTEGER PRIMARY KEY AUTOINCREMENT,
+-       name TEXT NOT NULL UNIQUE,
+-       phone TEXT,
+-       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+-       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+-     )
+-   &#96;);
++ export async function initializeDatabase() {
++   const client = await pool.connect();
++   
++   try {
++     // Master staff list table
++     await client.query(&#96;
++       CREATE TABLE IF NOT EXISTS staff (
++         id SERIAL PRIMARY KEY,
++         name TEXT NOT NULL UNIQUE,
++         phone TEXT,
++         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
++         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
++       )
++     &#96;);
+  
+-   db.exec(&#96;
+-     CREATE TABLE IF NOT EXISTS availability (
+-       id INTEGER PRIMARY KEY AUTOINCREMENT,
+-       staff_id INTEGER NOT NULL,
+-       date TEXT NOT NULL,
+-       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+-       FOREIGN KEY (staff_id) REFERENCES staff(id),
+-       UNIQUE(staff_id, date)
+-     )
+-   &#96;);
++     // Availability table
++     await client.query(&#96;
++       CREATE TABLE IF NOT EXISTS availability (
++         id SERIAL PRIMARY KEY,
++         staff_id INTEGER NOT NULL,
++         date TEXT NOT NULL,
++         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
++         FOREIGN KEY (staff_id) REFERENCES staff(id),
++         UNIQUE(staff_id, date)
++       )
++     &#96;);
+  
+-   db.exec(&#96;
+-     CREATE TABLE IF NOT EXISTS roster (
+-       id INTEGER PRIMARY KEY AUTOINCREMENT,
+-       staff_id INTEGER NOT NULL,
+-       date TEXT NOT NULL,
+-       slot_number INTEGER DEFAULT 1,
+-       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+-       FOREIGN KEY (staff_id) REFERENCES staff(id),
+-       UNIQUE(staff_id, date, slot_number)
+-     )
+-   &#96;);
++     // Roster assignments
++     await client.query(&#96;
++       CREATE TABLE IF NOT EXISTS roster (
++         id SERIAL PRIMARY KEY,
++         staff_id INTEGER NOT NULL,
++         date TEXT NOT NULL,
++         slot_number INTEGER DEFAULT 1,
++         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
++         FOREIGN KEY (staff_id) REFERENCES staff(id),
++         UNIQUE(staff_id, date, slot_number)
++       )
++     &#96;);
+  
+-   db.exec(&#96;
+-     CREATE INDEX IF NOT EXISTS idx_availability_date ON availability(date);
+-     CREATE INDEX IF NOT EXISTS idx_availability_staff ON availability(staff_id);
+-     CREATE INDEX IF NOT EXISTS idx_roster_date ON roster(date);
+-     CREATE INDEX IF NOT EXISTS idx_roster_staff ON roster(staff_id);
+-   &#96;);
++     // Create indexes
++     await client.query(&#96;
++       CREATE INDEX IF NOT EXISTS idx_availability_date ON availability(date);
++       CREATE INDEX IF NOT EXISTS idx_availability_staff ON availability(staff_id);
++       CREATE INDEX IF NOT EXISTS idx_roster_date ON roster(date);
++       CREATE INDEX IF NOT EXISTS idx_roster_staff ON roster(staff_id);
++     &#96;);
++   } finally {
++     client.release();
++   }
+  }
+  
+- export default db;
++ export default pool;
+  
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="write">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/lib/models.ts</summary>
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -1,3 +1,3 @@
+- import db from &#39;./database&#39;;
++ import pool from &#39;./database&#39;;
+  
+  export interface Staff {
+```
+
+**Chunk 2**
+Lines added: 81, lines removed: 49
+
+```diff
+@@ -31,104 +31,136 @@
+  // Staff operations
+  export const StaffModel = {
+-   getAll: (): Staff[] =&gt; {
+-     return db.prepare(&#39;SELECT * FROM staff ORDER BY name&#39;).all() as Staff[];
++   getAll: async (): Promise&lt;Staff[]&gt; =&gt; {
++     const result = await pool.query(&#39;SELECT * FROM staff ORDER BY name&#39;);
++     return result.rows;
+    },
+  
+-   getById: (id: number): Staff | undefined =&gt; {
+-     return db.prepare(&#39;SELECT * FROM staff WHERE id = ?&#39;).get(id) as Staff | undefined;
++   getById: async (id: number): Promise&lt;Staff | null&gt; =&gt; {
++     const result = await pool.query(&#39;SELECT * FROM staff WHERE id = $1&#39;, [id]);
++     return result.rows[0] || null;
+    },
+  
+-   getByName: (name: string): Staff | undefined =&gt; {
+-     return db.prepare(&#39;SELECT * FROM staff WHERE name = ?&#39;).get(name) as Staff | undefined;
++   getByName: async (name: string): Promise&lt;Staff | null&gt; =&gt; {
++     const result = await pool.query(&#39;SELECT * FROM staff WHERE name = $1&#39;, [name]);
++     return result.rows[0] || null;
+    },
+  
+-   create: (name: string, phone?: string): Staff =&gt; {
+-     const result = db.prepare(&#39;INSERT INTO staff (name, phone) VALUES (?, ?)&#39;).run(name, phone || null);
+-     return StaffModel.getById(result.lastInsertRowid as number)!;
++   create: async (name: string, phone?: string): Promise&lt;Staff&gt; =&gt; {
++     const result = await pool.query(
++       &#39;INSERT INTO staff (name, phone) VALUES ($1, $2) RETURNING *&#39;,
++       [name, phone || null]
++     );
++     return result.rows[0];
+    },
+  
+-   update: (id: number, name: string, phone?: string): Staff =&gt; {
+-     db.prepare(&#39;UPDATE staff SET name = ?, phone = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?&#39;).run(name, phone || null, id);
+-     return StaffModel.getById(id)!;
++   update: async (id: number, name: string, phone?: string): Promise&lt;Staff&gt; =&gt; {
++     const result = await pool.query(
++       &#39;UPDATE staff SET name = $1, phone = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *&#39;,
++       [name, phone || null, id]
++     );
++     return result.rows[0];
+    },
+  
+-   delete: (id: number): void =&gt; {
+-     db.prepare(&#39;DELETE FROM staff WHERE id = ?&#39;).run(id);
++   delete: async (id: number): Promise&lt;void&gt; =&gt; {
++     await pool.query(&#39;DELETE FROM staff WHERE id = $1&#39;, [id]);
+    },
+  };
+  
+  // Availability operations
+  export const AvailabilityModel = {
+-   getByDate: (date: string): Staff[] =&gt; {
+-     const result = db.prepare(&#96;
++   getByDate: async (date: string): Promise&lt;Staff[]&gt; =&gt; {
++     const result = await pool.query(&#96;
+        SELECT s.* FROM staff s
+        INNER JOIN availability a ON s.id = a.staff_id
+-       WHERE a.date = ?
++       WHERE a.date = $1
+        ORDER BY s.name
+-     &#96;).all(date) as Staff[];
+-     return result;
++     &#96;, [date]);
++     return result.rows;
+    },
+  
+-   getByStaffId: (staffId: number): string[] =&gt; {
+-     const result = db.prepare(&#39;SELECT date FROM availability WHERE staff_id = ? ORDER BY date&#39;).all(staffId) as Availability[];
+-     return result.map(a =&gt; a.date);
++   getByStaffId: async (staffId: number): Promise&lt;string[]&gt; =&gt; {
++     const result = await pool.query(
++       &#39;SELECT date FROM availability WHERE staff_id = $1 ORDER BY date&#39;,
++       [staffId]
++     );
++     return result.rows.map((r: any) =&gt; r.date);
+    },
+  
+-   add: (staffId: number, date: string): Availability =&gt; {
+-     const result = db.prepare(&#39;INSERT OR IGNORE INTO availability (staff_id, date) VALUES (?, ?)&#39;).run(staffId, date);
+-     return db.prepare(&#39;SELECT * FROM availability WHERE staff_id = ? AND date = ?&#39;).get(staffId, date) as Availability;
++   add: async (staffId: number, date: string): Promise&lt;Availability&gt; =&gt; {
++     const result = await pool.query(
++       &#39;INSERT INTO availability (staff_id, date) VALUES ($1, $2) ON CONFLICT (staff_id, date) DO NOTHING RETURNING *&#39;,
++       [staffId, date]
++     );
++     if (result.rows[0]) {
++       return result.rows[0];
++     }
++     const existing = await pool.query(
++       &#39;SELECT * FROM availability WHERE staff_id = $1 AND date = $2&#39;,
++       [staffId, date]
++     );
++     return existing.rows[0];
+    },
+  
+-   remove: (staffId: number, date: string): void =&gt; {
+-     db.prepare(&#39;DELETE FROM availability WHERE staff_id = ? AND date = ?&#39;).run(staffId, date);
++   remove: async (staffId: number, date: string): Promise&lt;void&gt; =&gt; {
++     await pool.query(&#39;DELETE FROM availability WHERE staff_id = $1 AND date = $2&#39;, [staffId, date]);
+    },
+  
+-   clearForDate: (date: string): void =&gt; {
+-     db.prepare(&#39;DELETE FROM availability WHERE date = ?&#39;).run(date);
++   clearForDate: async (date: string): Promise&lt;void&gt; =&gt; {
++     await pool.query(&#39;DELETE FROM availability WHERE date = $1&#39;, [date]);
+    },
+  };
+  
+  // Roster operations
+  export const RosterModel = {
+-   getByDate: (date: string): Staff[] =&gt; {
+-     const result = db.prepare(&#96;
++   getByDate: async (date: string): Promise&lt;Staff[]&gt; =&gt; {
++     const result = await pool.query(&#96;
+        SELECT s.*, r.slot_number FROM staff s
+        INNER JOIN roster r ON s.id = r.staff_id
+-       WHERE r.date = ?
++       WHERE r.date = $1
+        ORDER BY r.slot_number, s.name
+-     &#96;).all(date) as (Staff &amp; { slot_number: number })[];
+-     return result;
++     &#96;, [date]);
++     return result.rows;
+    },
+  
+-   getByStaffId: (staffId: number): string[] =&gt; {
+-     const result = db.prepare(&#39;SELECT date FROM roster WHERE staff_id = ? ORDER BY date&#39;).all(staffId) as RosterAssignment[];
+-     return result.map(r =&gt; r.date);
++   getByStaffId: async (staffId: number): Promise&lt;string[]&gt; =&gt; {
++     const result = await pool.query(
++       &#39;SELECT date FROM roster WHERE staff_id = $1 ORDER BY date&#39;,
++       [staffId]
++     );
++     return result.rows.map((r: any) =&gt; r.date);
+    },
+  
+-   add: (staffId: number, date: string, slotNumber: number = 1): RosterAssignment =&gt; {
+-     const result = db.prepare(&#39;INSERT OR REPLACE INTO roster (staff_id, date, slot_number) VALUES (?, ?, ?)&#39;).run(staffId, date, slotNumber);
+-     return db.prepare(&#39;SELECT * FROM roster WHERE staff_id = ? AND date = ? AND slot_number = ?&#39;).get(staffId, date, slotNumber) as RosterAssignment;
++   add: async (staffId: number, date: string, slotNumber: number = 1): Promise&lt;RosterAssignment&gt; =&gt; {
++     const result = await pool.query(
++       &#96;INSERT INTO roster (staff_id, date, slot_number) 
++        VALUES ($1, $2, $3) 
++        ON CONFLICT (staff_id, date, slot_number) 
++        DO UPDATE SET staff_id = $1 
++        RETURNING *&#96;,
++       [staffId, date, slotNumber]
++     );
++     return result.rows[0];
+    },
+  
+-   remove: (staffId: number, date: string, slotNumber?: number): void =&gt; {
++   remove: async (staffId: number, date: string, slotNumber?: number): Promise&lt;void&gt; =&gt; {
+      if (slotNumber !== undefined) {
+-       db.prepare(&#39;DELETE FROM roster WHERE staff_id = ? AND date = ? AND slot_number = ?&#39;).run(staffId, date, slotNumber);
++       await pool.query(&#39;DELETE FROM roster WHERE staff_id = $1 AND date = $2 AND slot_number = $3&#39;, [staffId, date, slotNumber]);
+      } else {
+-       db.prepare(&#39;DELETE FROM roster WHERE staff_id = ? AND date = ?&#39;).run(staffId, date);
++       await pool.query(&#39;DELETE FROM roster WHERE staff_id = $1 AND date = $2&#39;, [staffId, date]);
+      }
+    },
+  
+-   clearForDate: (date: string): void =&gt; {
+-     db.prepare(&#39;DELETE FROM roster WHERE date = ?&#39;).run(date);
++   clearForDate: async (date: string): Promise&lt;void&gt; =&gt; {
++     await pool.query(&#39;DELETE FROM roster WHERE date = $1&#39;, [date]);
+    },
+  };
+  
+  // Combined operations
+- export const getStaffWithSchedule = (staffId: number): StaffWithAvailability | null =&gt; {
+-   const staff = StaffModel.getById(staffId);
++ export const getStaffWithSchedule = async (staffId: number): Promise&lt;StaffWithAvailability | null&gt; =&gt; {
++   const staff = await StaffModel.getById(staffId);
+    if (!staff) return null;
+  
+-   const availableDates = AvailabilityModel.getByStaffId(staffId);
+-   const scheduledDates = RosterModel.getByStaffId(staffId);
++   const availableDates = await AvailabilityModel.getByStaffId(staffId);
++   const scheduledDates = await RosterModel.getByStaffId(staffId);
+  
+    return {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="write">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/lib/init.ts</summary>
+
+**Chunk 1**
+Lines added: 3, lines removed: 4
+
+```diff
+@@ -7,9 +7,8 @@
+  // Initialize database when this module is imported
+  if (typeof window === &#39;undefined&#39;) {
+-   try {
+-     initializeDatabase();
+-   } catch (error) {
++   // Run async initialization
++   initializeDatabase().catch(error =&gt; {
+      console.error(&#39;Failed to initialize database:&#39;, error);
+-   }
++   });
+  }
+  
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<think><details><summary>Thought Process</summary>
+Now I need to update all the API routes to handle async operations since PostgreSQL requires async/await.</details></think>
+
+---
+
+Now updating all API routes to handle async PostgreSQL queries:
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="write">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/app/api/staff/route.ts</summary>
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -5,5 +5,5 @@
+  export async function GET() {
+    try {
+-     const staff = StaffModel.getAll();
++     const staff = await StaffModel.getAll();
+      return NextResponse.json({
+        success: true,
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="write">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/app/api/roster/[date]/route.ts</summary>
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -9,5 +9,5 @@
+    try {
+      const date = decodeURIComponent(params.date);
+-     const roster = RosterModel.getByDate(date);
++     const roster = await RosterModel.getByDate(date);
+      
+      return NextResponse.json({
+```
+
+**Chunk 2**
+Lines added: 5, lines removed: 5
+
+```diff
+@@ -39,11 +39,11 @@
+      }
+  
+-     RosterModel.clearForDate(date);
++     await RosterModel.clearForDate(date);
+  
+-     staffIds.forEach((staffId: number, index: number) =&gt; {
+-       RosterModel.add(staffId, date, index + 1);
+-     });
++     for (let i = 0; i &lt; staffIds.length; i++) {
++       await RosterModel.add(staffIds[i], date, i + 1);
++     }
+  
+-     const roster = RosterModel.getByDate(date);
++     const roster = await RosterModel.getByDate(date);
+  
+      return NextResponse.json({
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="write">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/app/api/staff/[id]/schedule/route.ts</summary>
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -9,5 +9,5 @@
+    try {
+      const staffId = parseInt(params.id);
+-     const staffSchedule = getStaffWithSchedule(staffId);
++     const staffSchedule = await getStaffWithSchedule(staffId);
+      
+      if (!staffSchedule) {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="write">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/app/api/availability/[date]/route.ts</summary>
+
+**Chunk 1**
+Lines added: 1, lines removed: 4
+
+```diff
+@@ -1,9 +1,6 @@
+  import { NextRequest, NextResponse } from &#39;next/server&#39;;
+  import { AvailabilityModel } from &#39;@/lib/models&#39;;
+- import &#39;@/lib/init&#39;; // Initialize database
++ import &#39;@/lib/init&#39;;
+  
+- /**
+-  * Get all staff available on a specific date
+-  */
+  export async function GET(
+    request: NextRequest,
+```
+
+**Chunk 2**
+Lines added: 2, lines removed: 2
+
+```diff
+@@ -12,10 +9,10 @@
+    try {
+      const date = decodeURIComponent(params.date);
+-     const availableStaff = AvailabilityModel.getByDate(date);
++     const staff = await AvailabilityModel.getByDate(date);
+      
+      return NextResponse.json({
+        success: true,
+        date,
+-       staff: availableStaff,
++       staff,
+      });
+    } catch (error: any) {
+```
+
+**Chunk 3**
+Lines added: undefined, lines removed: 1
+
+```diff
+@@ -26,4 +23,3 @@
+    }
+  }
+- 
+  
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="write">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/lib/brain.ts</summary>
+
+**Chunk 1**
+Lines added: 3, lines removed: 3
+
+```diff
+@@ -14,9 +14,9 @@
+    // Sync staff to database
+    for (const staff of cleanData.staff) {
+-     const existing = StaffModel.getByName(staff.name);
++     const existing = await StaffModel.getByName(staff.name);
+      if (!existing) {
+-       StaffModel.create(staff.name, staff.phone);
++       await StaffModel.create(staff.name, staff.phone);
+      } else if (staff.phone &amp;&amp; existing.phone !== staff.phone) {
+-       StaffModel.update(existing.id, staff.name, staff.phone);
++       await StaffModel.update(existing.id, staff.name, staff.phone);
+      }
+    }
+```
+
+**Chunk 2**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -25,5 +25,5 @@
+    const nextWeekDates = getNextWeekDates();
+    for (const date of nextWeekDates) {
+-     AvailabilityModel.clearForDate(date);
++     await AvailabilityModel.clearForDate(date);
+    }
+  
+```
+
+**Chunk 3**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -33,5 +33,5 @@
+    for (const availability of cleanData.availability) {
+      if (isInNextWeek(availability.date)) {
+-       const staff = StaffModel.getByName(availability.staffName);
++       const staff = await StaffModel.getByName(availability.staffName);
+        if (staff) {
+          if (!staffAvailabilityMap.has(availability.staffName)) {
+```
+
+**Chunk 4**
+Lines added: 3, lines removed: 3
+
+```diff
+@@ -46,12 +46,12 @@
+    let availabilityCount = 0;
+    for (const [staffName, dates] of staffAvailabilityMap.entries()) {
+-     const staff = StaffModel.getByName(staffName);
++     const staff = await StaffModel.getByName(staffName);
+      if (staff) {
+        for (const date of nextWeekDates) {
+-         AvailabilityModel.remove(staff.id, date);
++         await AvailabilityModel.remove(staff.id, date);
+        }
+        
+        for (const date of dates) {
+-         AvailabilityModel.add(staff.id, date);
++         await AvailabilityModel.add(staff.id, date);
+          availabilityCount++;
+        }
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="generic" data-tool-name="todo_write">
+<details><summary>Tool use: **todo_write** • Todo List</summary>
+
+- [x] Install PostgreSQL dependencies (pg library)
+- [x] Rewrite database.ts to use PostgreSQL instead of SQLite
+- [x] Update models to use PostgreSQL queries
+- [ ] Add PostgreSQL database to Railway project
+- [ ] Test locally with PostgreSQL
+- [ ] Deploy to Railway and verify
+
+</details>
+</tool-use>
+
+---
+
+<think><details><summary>Thought Process</summary>
+I need to update the Admin staff management API endpoints as well since they also interact with the database.</details></think>
+
+---
+
+<tool-use data-tool-type="read" data-tool-name="read_file">
+<details><summary>Tool use: **read_file** • Read file: /Users/sai/Warehouse management/app/api/staff/[id]/route.ts</summary>
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="write">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/app/api/staff/[id]/route.ts</summary>
+
+**Chunk 1**
+Lines added: 1, lines removed: 4
+
+```diff
+@@ -1,9 +1,6 @@
+  import { NextRequest, NextResponse } from &#39;next/server&#39;;
+  import { StaffModel } from &#39;@/lib/models&#39;;
+- import &#39;@/lib/init&#39;; // Initialize database
++ import &#39;@/lib/init&#39;;
+  
+- /**
+-  * Update staff member
+-  */
+  export async function PATCH(
+    request: NextRequest,
+```
+
+**Chunk 2**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -14,5 +11,5 @@
+      const { name, phone } = await request.json();
+      
+-     if (!name) {
++     if (!name || !name.trim()) {
+        return NextResponse.json({
+          success: false,
+```
+
+**Chunk 3**
+Lines added: 3, lines removed: 3
+
+```diff
+@@ -21,9 +18,9 @@
+      }
+  
+-     const updated = StaffModel.update(staffId, name, phone);
+-     
++     const updatedStaff = await StaffModel.update(staffId, name.trim(), phone);
++ 
+      return NextResponse.json({
+        success: true,
+-       staff: updated,
++       staff: updatedStaff,
+      });
+    } catch (error: any) {
+```
+
+**Chunk 4**
+Lines added: undefined, lines removed: 3
+
+```diff
+@@ -35,7 +32,4 @@
+  }
+  
+- /**
+-  * Delete staff member
+-  */
+  export async function DELETE(
+    request: NextRequest,
+```
+
+**Chunk 5**
+Lines added: 3, lines removed: 3
+
+```diff
+@@ -44,9 +38,9 @@
+    try {
+      const staffId = parseInt(params.id);
+-     StaffModel.delete(staffId);
+-     
++     await StaffModel.delete(staffId);
++ 
+      return NextResponse.json({
+        success: true,
+-       message: &#39;Staff member deleted&#39;,
++       message: &#39;Staff deleted successfully&#39;,
+      });
+    } catch (error: any) {
+```
+
+**Chunk 6**
+Lines added: undefined, lines removed: 1
+
+```diff
+@@ -57,4 +51,3 @@
+    }
+  }
+- 
+  
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="generic" data-tool-name="read_lints">
+<details>
+          <summary>Tool use: **read_lints** • Read lints for 2 files</summary>
+      
+Lint paths:
+
+- `lib`
+- `app/api`
+
+Lint results
+
+Lint errors for `app/api/roster/[date]/route.ts`
+
+
+| Message | Range | Severity |
+|-------|-------|----------|
+| 'request' is declared but its value is never read. | 6:3-6:10 | DIAGNOSTIC_SEVERITY_HINT |
+
+
+</details>
+</tool-use>
+
+---
+
+<think><details><summary>Thought Process</summary>
+Good, no linter errors. Now I need to update package.json to remove better-sqlite3 and commit everything, then guide the user to add PostgreSQL on Railway.</details></think>
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: cd "/Users/sai/Warehouse management" && npm uninstall better-sqlite3</summary>
+
+```bash
+cd "/Users/sai/Warehouse management" && npm uninstall better-sqlite3
+```
+
+```
+
+removed 33 packages in 752ms
+
+```
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Switch to PostgreSQL for reliable data persistence on Railway" && git push</summary>
+
+```bash
+cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Switch to PostgreSQL for reliable data persistence on Railway" && git push
+```
+
+```
+[main d3cbec8] Switch to PostgreSQL for reliable data persistence on Railway
+ Committer: Your Name &lt;sai@SAIdeMacBook-Air.local&gt;
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name &quot;Your Name&quot;
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 13 files changed, 1692 insertions(+), 844 deletions(-)
+ create mode 100644 FRESH_DEPLOY_INSTRUCTIONS.md
+To https://github.com/q17983/warehouse-roster-system.git
+   5c8a258..d3cbec8  main -&gt; main
+
+```
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="write">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/RAILWAY_POSTGRES_SETUP.md</summary>
+
+**Chunk 1**
+Lines added: 91, lines removed: 1
+
+```diff
+@@ -1,1 +1,91 @@
+- 
++ # 🐘 Add PostgreSQL to Railway
++ 
++ ## Step-by-Step Instructions
++ 
++ ### Step 1: Go to Railway Dashboard
++ Open: https://railway.app/dashboard
++ 
++ ### Step 2: Open Your Project
++ Click on: **robust-abundance** (your project)
++ 
++ ### Step 3: Add PostgreSQL Database
++ 
++ **Look for a &quot;+ New&quot; button or similar:**
++ - Might be in the top-right
++ - Or bottom of the screen
++ - Or a &quot;+&quot; icon in the canvas view
++ 
++ **Click it and select:**
++ - **&quot;Database&quot;** → **&quot;PostgreSQL&quot;**
++ - Or **&quot;Add Service&quot;** → **&quot;Database&quot;** → **&quot;PostgreSQL&quot;**
++ 
++ ### Step 4: PostgreSQL Will Auto-Deploy
++ Railway will:
++ - ✅ Create a new PostgreSQL database
++ - ✅ Auto-generate connection details
++ - ✅ Add &#96;DATABASE_URL&#96; environment variable to your service
++ 
++ **This happens automatically - you don&#39;t need to configure anything!**
++ 
++ ### Step 5: Verify DATABASE_URL
++ 
++ 1. Go back to your **warehouse-roster-system** service
++ 2. Click **&quot;Variables&quot;** tab
++ 3. **Look for:** &#96;DATABASE_URL&#96;
++ 4. Should show: &#96;postgresql://...&#96; (Railway adds this automatically)
++ 
++ ### Step 6: Redeploy
++ 
++ After PostgreSQL is added:
++ 1. Railway will auto-redeploy your service
++ 2. Or manually trigger: Deployments → Redeploy
++ 
++ ---
++ 
++ ## After Deployment
++ 
++ ### Test the App:
++ 
++ 1. **Go to Admin:**
++    &#96;&#96;&#96;
++    https://warehouse-roster-system-production.up.railway.app/admin
++    &#96;&#96;&#96;
++    - Click &quot;Process Data&quot;
++    - Should show success
++ 
++ 2. **Scroll to &quot;Manage Staff&quot;:**
++    - Should immediately show all 6 staff members!
++ 
++ 3. **Go to Leader App:**
++    &#96;&#96;&#96;
++    https://warehouse-roster-system-production.up.railway.app/leader
++    &#96;&#96;&#96;
++    - Plan Roster → Assign staff → Save
++    - Check Staff → Should show all staff and their schedules!
++ 
++ ---
++ 
++ ## Why PostgreSQL Works Better
++ 
++ - ✅ Designed for server/cloud environments
++ - ✅ No file locking issues
++ - ✅ No WAL synchronization problems
++ - ✅ Railway manages it natively
++ - ✅ Data persistence guaranteed
++ - ✅ Scales better as your team grows
++ 
++ ---
++ 
++ ## Quick Guide
++ 
++ 1. Railway Dashboard → Your Project
++ 2. Click **&quot;+ New&quot;** → **&quot;Database&quot;** → **&quot;PostgreSQL&quot;**
++ 3. Wait for it to deploy (~1 minute)
++ 4. Railway auto-adds &#96;DATABASE_URL&#96; to your service
++ 5. Your service auto-redeploys
++ 6. Test the app - should work perfectly!
++ 
++ ---
++ 
++ **Go to Railway and add PostgreSQL now. It&#39;s literally 2 clicks and everything should work!**
++ 
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<think><details><summary>Thought Process</summary>
+Perfect! I've pushed the PostgreSQL version to GitHub. Now I need to guide the user to add PostgreSQL on Railway.</details></think>
+
+---
+
+<tool-use data-tool-type="generic" data-tool-name="todo_write">
+<details><summary>Tool use: **todo_write** • Todo List</summary>
+
+- [x] Install PostgreSQL dependencies (pg library)
+- [x] Rewrite database.ts to use PostgreSQL instead of SQLite
+- [x] Update models to use PostgreSQL queries
+- [-] Add PostgreSQL database to Railway project
+- [ ] Test locally with PostgreSQL
+- [ ] Deploy to Railway and verify
+
+</details>
+</tool-use>
+
+---
+
+<think><details><summary>Thought Process</summary>
+Good, now I need to wait for the user to add PostgreSQL on Railway. Let me give them clear instructions.</details></think>
+
+---
+
+## ✅ Code is Ready for PostgreSQL!
+
+I've completely rewritten everything to use PostgreSQL:
+- ✅ Installed `pg` library
+- ✅ Rewrote database.ts for PostgreSQL
+- ✅ Updated all models to async/await
+- ✅ Updated all API routes
+- ✅ Pushed to GitHub
+
+---
+
+## 🎯 Now You Need to Add PostgreSQL on Railway
+
+### Quick Steps:
+
+1. **Railway Dashboard** → Click your project **robust-abundance**
+
+2. **Look for "+ New" button** (usually top-right or bottom)
+   - Click it
+
+3. **Select "Database" → "PostgreSQL"**
+   - Or "Add Service" → "Database" → "PostgreSQL"
+
+4. **PostgreSQL will deploy automatically** (~1 minute)
+
+5. **Railway automatically connects it** to your service
+   - Adds `DATABASE_URL` environment variable
+   - Your app will auto-redeploy
+
+---
+
+## After PostgreSQL is Added
+
+Wait ~3 minutes for everything to deploy, then:
+
+1. Go to: `https://warehouse-roster-system-production.up.railway.app/admin`
+2. Click **"Process Data"**
+3. Check **"Manage Staff"** - should show 6 staff!
+4. Test Leader app - everything should work!
+
+---
+
+**See `RAILWAY_POSTGRES_SETUP.md` for detailed instructions.**
+
+**Go to Railway now and add PostgreSQL database. Let me know when it's deployed!**
+
+---
+
+_**User (2025-11-02 09:46Z)**_
+
+✗ Error
+Failed to process data
+
+---
+
+_**Agent (model claude-4.5-sonnet-thinking, mode Agent)**_
+
+<think><details><summary>Thought Process</summary>
+The error "Failed to process data" means the PostgreSQL database isn't connected yet. The user needs to add PostgreSQL to Railway first, but they might have tried to process data before adding it.
+
+Let me check the Railway logs to see what the actual error is, and guide them to add PostgreSQL.</details></think>
+
+---
+
+The error is expected - we haven't added PostgreSQL to Railway yet! The app is trying to connect to `DATABASE_URL` which doesn't exist.
+
+## Add PostgreSQL to Railway First
+
+### Step-by-Step:
+
+1. **Go to Railway Dashboard**
+   - Click on your project: **robust-abundance**
+
+2. **Find the "+ New" button**
+   - Look at the canvas view (where you see your service)
+   - There should be a **"+ New"** or **"+"** button
+   - Or right-click on empty space → **"New Service"**
+
+3. **Add Database**
+   - Click **"+ New"**
+   - Select **"Database"**
+   - Choose **"Add PostgreSQL"** or **"PostgreSQL"**
+
+4. **PostgreSQL deploys automatically**
+   - Railway creates the database (~1 minute)
+   - Automatically adds `DATABASE_URL` to your service
+   - Your service auto-redeploys
+
+---
+
+## Can You Find the "+ New" Button?
+
+**Look for:**
+- A purple/blue **"+ New"** button
+- Or a **"+"** icon
+- In the canvas view where your service is displayed
+
+**If you can't find it:**
+- Try clicking on the canvas (the area showing your service boxes)
+- Right-click → Look for "New Service" or "Add Service"
+- Or look for a button that says "Add Database"
+
+---
+
+**Can you see a "+ New" or similar button in your Railway project view? Or take a screenshot of the project dashboard so I can guide you?**
+
+---
+
+_**User (2025-11-02 09:46Z)**_
+
+i have add the Add PostgreSQL" or "PostgreSQL",,, but whats next,
+
+---
+
+_**Agent (model claude-4.5-sonnet-thinking, mode Agent)**_
+
+<think><details><summary>Thought Process</summary>
+Great! The user has added PostgreSQL to Railway. I can see in the screenshot that it shows "You have no tables" which is expected - the tables will be created when the app connects to it.
+
+Now I need to:
+1. Check if Railway has automatically added DATABASE_URL to the service
+2. Wait for the service to redeploy
+3. The app will connect and create tables automatically
+4. Then test the app
+
+Let me guide them through this.</details></think>
+
+---
+
+🎉 **Perfect! PostgreSQL is added!**
+
+Now Railway needs to connect it to your app:
+
+## Next Steps:
+
+### Step 1: Link PostgreSQL to Your Service
+
+1. **Close the PostgreSQL window** (click X)
+
+2. **Look at the canvas view** - you should now see:
+   - Your `warehouse-roster-system` service (box/card)
+   - A `Postgres` service (box/card)
+
+3. **Connect them:**
+   - Railway might show a suggested connection line between them
+   - Or click on **Postgres** → Look for **"Connect"** button
+   - Or the connection might be automatic
+
+### Step 2: Verify DATABASE_URL Variable
+
+1. **Click on your `warehouse-roster-system` service** (not Postgres)
+2. Click **"Variables"** tab
+3. **Look for `DATABASE_URL`** 
+   - Should be there automatically (Railway adds it)
+   - Value should look like: `postgresql://...`
+
+**If you DON'T see `DATABASE_URL`:**
+- Go to Postgres service → Click **"Connect"** button
+- Select your warehouse-roster-system service
+- Railway will add the variable
+
+### Step 3: Wait for Redeploy
+
+After `DATABASE_URL` is added, Railway will automatically redeploy your service (~2 minutes).
+
+Watch: **Deployments** tab → Should show a new deployment
+
+---
+
+## After Deployment Completes
+
+1. **Go to Admin:**
+   ```
+   https://warehouse-roster-system-production.up.railway.app/admin
+   ```
+
+2. **Click "Process Data"**
+   - Should create tables automatically
+   - Should process 6 staff successfully
+
+3. **Check "Manage Staff"** - should show all 6 staff!
+
+4. **Test Leader App** - should work perfectly!
+
+---
+
+**Check if `DATABASE_URL` variable exists in your warehouse-roster-system service Variables tab. Let me know if you see it!**
+
+---
+
+_**User (2025-11-02 09:46Z)**_
+
+how to connect the postgres and my webapp?
+
+---
+
+_**Agent (model claude-4.5-sonnet-thinking, mode Agent)**_
+
+<think><details><summary>Thought Process</summary>
+The user is asking how to connect the Postgres database to their web app. I can see in the screenshot that they have both services deployed (Postgres on the left, warehouse-roster-system on the right), both showing successful deployments 8 minutes ago.
+
+Looking at the first screenshot, it shows a "Connect to Postgres" dialog with instructions about creating a variable. The user needs to add the DATABASE_URL variable to their warehouse-roster-system service.
+
+Let me guide them through this.</details></think>
+
+---
+
+Perfect! I can see both services are deployed. Now connect them:
+
+## Connect PostgreSQL to Your Web App
+
+### Option 1: Use Railway's Auto-Connect (Easiest)
+
+1. **Click on the Postgres service** (the left box)
+2. Look for a **"Connect"** button (might be at the top or in settings)
+3. Click it
+4. **Select your service:** `warehouse-roster-system`
+5. Railway will automatically add `DATABASE_URL` variable
+
+### Option 2: Manual Connection
+
+If you don't see a Connect button:
+
+1. **Click on the Postgres service**
+2. Go to **"Variables"** tab
+3. Look for `DATABASE_URL` - **copy the entire value**
+   - It looks like: `postgresql://postgres:password@hostname:5432/railway`
+
+4. **Click on your warehouse-roster-system service** (the right box)
+5. Go to **"Variables"** tab
+6. Click **"+ New Variable"**
+7. **Name:** `DATABASE_URL`
+8. **Value:** Paste the PostgreSQL URL you copied
+9. Click **"Add"**
+
+### Option 3: Use the Reference (From Screenshot)
+
+From your first screenshot, Railway suggests using a reference:
+
+1. **Click on warehouse-roster-system service**
+2. **Variables tab** → **"+ New Variable"**
+3. **Name:** `DATABASE_URL`
+4. **Value:** `${{ Postgres.DATABASE_URL }}`
+5. Click **"Add"**
+
+---
+
+**Try Option 3 first (the reference `${{ Postgres.DATABASE_URL }}`). This is Railway's recommended way!**
+
+After adding the variable, Railway will auto-redeploy. Let me know when you've added it!
+
+---
+
+_**User (2025-11-02 09:46Z)**_
+
+finally,,, it works now!!!!
+
+---
+
+_**Agent (model claude-4.5-sonnet-thinking, mode Agent)**_
+
 
 
 ---

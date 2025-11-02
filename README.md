@@ -1,186 +1,146 @@
-# Warehouse Roster System
+# Warehouse Roster Planning System
 
-A simple, mobile-friendly web application for managing staff rosters. This system replaces cumbersome Google Sheets with an intuitive interface designed for warehouse leaders.
+A simple, mobile-friendly staff roster management system for warehouse operations.
 
-## Features
+## 🌟 Features
 
-### Part 1: Staff Application (Input)
-- Staff submit availability through Google Forms (existing setup)
-- Data is automatically collected in Google Sheets
+- **Staff Application:** Google Form for weekly availability submissions
+- **Automated Processing:** Clean and organize form data automatically
+- **Mobile-First Leader App:** Simple interface optimized for iPhone
+- **Smart Calendar:** See only available staff when planning
+- **Staff Search:** Instantly check any staff member's schedule
+- **Week-Based Planning:** Focus on next week's roster (Monday-Sunday)
 
-### Part 2: Automatic "Brain" (Processing)
-- Automatically processes Google Sheets form responses
-- Cleans and deduplicates staff data
-- Creates a clean database of staff and their availability
+---
 
-### Part 3: Leader's App (Interface)
-- **Tool 1: Plan the Roster** - Calendar view where leaders can:
-  - Tap any date to see available staff
-  - Select multiple staff members in seconds
-  - Save roster assignments instantly
-- **Tool 2: Check Staff Schedule** - Search dashboard where leaders can:
-  - View all staff members
-  - See each staff member's scheduled and available dates
+## 🚀 Quick Start
 
-## Setup Instructions
+### Live URLs
 
-### Prerequisites
+**Admin Panel:** https://warehouse-roster-system-production.up.railway.app/admin
 
-- Node.js 18+ installed
-- npm or yarn package manager
-- Access to your Google Sheet with form responses
+**Leader App:** https://warehouse-roster-system-production.up.railway.app/leader
 
-### 1. Install Dependencies
+### First Time Setup
+
+1. **Set up Google Apps Script** (see `APPS_SCRIPT_SETUP.md`)
+2. **Process Data** in Admin Panel
+3. **Start Planning** in Leader App
+
+---
+
+## 📋 Weekly Workflow
+
+1. **Monday-Tuesday:** Send Google Form to staff for next week
+2. **Wednesday:** Process data in Admin Panel
+3. **Wednesday-Friday:** Leader plans roster for next week
+4. **Anytime:** Check staff schedules
+
+---
+
+## 🛠 Tech Stack
+
+- **Frontend:** Next.js 14, React, TypeScript
+- **Database:** PostgreSQL (Railway)
+- **Data Source:** Google Apps Script
+- **Hosting:** Railway
+- **Version Control:** GitHub
+
+---
+
+## 📚 Documentation
+
+- `APPS_SCRIPT_SETUP.md` - Set up Google Apps Script
+- `AUTOMATIC_SYNC_SETUP.md` - Configure hourly auto-sync
+- `WEEK_BASED_WORKFLOW.md` - How the week-based planning works
+- `DATA_FLOW_EXPLAINED.md` - Understanding the data pipeline
+- `RAILWAY_POSTGRES_SETUP.md` - PostgreSQL setup on Railway
+- `FINAL_SETUP_COMPLETE.md` - System overview and usage
+
+---
+
+## 🏗 Development
+
+### Local Development
 
 ```bash
+# Install dependencies
 npm install
-```
 
-### 2. Set Up Google Apps Script (No API Keys Needed!)
+# Set up environment variables
+cp .env.local.example .env.local
+# Edit .env.local with your Apps Script URL
 
-**This is much simpler than using Google Sheets API and works even if your organization blocks service accounts!**
-
-See **[APPS_SCRIPT_SETUP.md](./APPS_SCRIPT_SETUP.md)** for detailed step-by-step instructions.
-
-**Quick version:**
-1. Open your Google Sheet → **Extensions → Apps Script**
-2. Copy the code from `google-apps-script.js` in this project
-3. Deploy as Web App (recommended) or set up automatic CSV export
-4. Copy the Web App URL
-
-### 3. Environment Variables
-
-Create a `.env.local` file in the project root:
-
-```env
-# Option 1: Web App URL (Recommended - Easiest)
-APPS_SCRIPT_WEB_APP_URL=https://script.google.com/macros/s/...
-
-# Option 2: CSV URL (Alternative - if using CSV export method)
-GOOGLE_SHEETS_CSV_URL=https://docs.google.com/spreadsheets/d/.../export?format=csv
-
-# Database location
-DATABASE_PATH=./roster.db
-```
-
-### 4. Run the Application
-
-```bash
+# Run development server
 npm run dev
 ```
 
-The application will be available at `http://localhost:3000`
+Open http://localhost:3000
 
-### 5. Process Data (First Time Setup)
+### Environment Variables
 
-1. Navigate to the Admin Panel at `http://localhost:3000/admin`
-2. Either:
-   - Use the URLs from your `.env.local` file (automatic), OR
-   - Paste your Apps Script Web App URL or CSV URL in the form
-3. Click "Process Data" to sync cleaned data from Apps Script
+```bash
+# Google Apps Script Web App URL
+APPS_SCRIPT_WEB_APP_URL=https://script.google.com/macros/s/.../exec
 
-## Usage
-
-### For Leaders
-
-1. Go to `/leader` to access the Leader's App
-2. **Plan Roster:**
-   - View the calendar showing 2 weeks at a time
-   - Tap any date to see available staff
-   - Select staff members for that date
-   - Click "Save" to assign them
-3. **Check Staff Schedule:**
-   - Switch to "Check Staff" view
-   - Tap a staff member's name
-   - View their scheduled and available dates
-
-### For Admins
-
-1. Go to `/admin` to access the Admin Panel
-2. Click "Process Data" whenever you need to sync new form responses from Google Sheets
-3. The system will automatically:
-   - Read all form responses
-   - Clean and deduplicate staff names
-   - Update availability records
-
-## Technology Stack
-
-- **Next.js 14** - React framework with API routes
-- **TypeScript** - Type-safe development
-- **SQLite (better-sqlite3)** - Simple, file-based database
-- **Google Apps Script** - Process and clean form data (no API keys needed!)
-- **date-fns** - Date manipulation
-- **CSS Modules** - Scoped styling
-
-## Project Structure
-
-```
-├── app/
-│   ├── api/              # API endpoints
-│   ├── leader/           # Leader's app interface
-│   ├── admin/            # Admin panel
-│   └── page.tsx          # Home page
-├── lib/
-│   ├── database.ts       # Database setup
-│   ├── models.ts         # Data models
-│   ├── brain.ts          # Data processing logic
-│   ├── appsScriptData.ts # Apps Script data fetching
-│   ├── weekUtils.ts      # Week-based date utilities
-│   └── init.ts           # Database initialization
-└── package.json
+# Database (auto-provided by Railway)
+DATABASE_URL=postgresql://...
 ```
 
-## Database Schema
+### Deploy to Railway
 
-- **staff** - Master list of all staff members
-- **availability** - Clean list of who is available on what date
-- **roster** - Leader's roster assignments
+1. Connect GitHub repository to Railway
+2. Add PostgreSQL database
+3. Railway auto-deploys on every push to main
 
-## Deployment
+---
 
-For production deployment:
+## 📱 For Warehouse Leaders
 
-1. Build the application:
-   ```bash
-   npm run build
-   ```
+**Your URL:** https://warehouse-roster-system-production.up.railway.app/leader
 
-2. Start the production server:
-   ```bash
-   npm start
-   ```
+**How to use:**
+1. **Plan Roster tab:** Tap dates, select staff, save
+2. **Check Staff tab:** Tap staff names to see their schedules
 
-3. Consider deploying to:
-   - Vercel (recommended for Next.js)
-   - Railway
-   - DigitalOcean App Platform
-   - Any Node.js hosting service
+Simple and mobile-friendly!
 
-## Notes
+---
 
-- The database file (`roster.db`) is created automatically on first run
-- Google Sheets processing can be run on-demand from the admin panel
-- The system is designed to be mobile-friendly for use on tablets and phones
-- All roster data is stored locally in SQLite - consider backups for production use
+## 🔧 Troubleshooting
 
-## Troubleshooting
+### "Failed to process data"
+- Check Apps Script Web App URL is correct
+- Verify Google Sheet has data
+- Check Railway logs for details
 
-**Apps Script errors:**
-- Make sure you've deployed the Web App with "Anyone" access
-- Check Apps Script execution log for errors
-- Verify the CONFIG section matches your sheet names
-- Try running `testProcess` function manually in Apps Script
+### Staff not showing
+- Process data in Admin Panel first
+- Verify DATABASE_URL is set in Railway
 
-**Web App URL not working:**
-- Make sure deployment settings: "Execute as: Me" and "Who has access: Anyone"
-- Check that the URL is the Web App URL, not the editor URL
+### Roster not saving
+- Check PostgreSQL database is connected
+- Check Railway deployment logs
 
-**Database errors:**
-- Delete `roster.db` and restart the application to recreate
-- Check file permissions in the project directory
+---
 
-**No staff showing in availability:**
-- Run "Process Data" in the admin panel first
-- Check that your Google Sheet has form responses
-- Verify the sheet name matches your form responses tab
+## 📞 Support
 
+For issues:
+1. Check Railway deployment logs
+2. Verify PostgreSQL connection
+3. Check Google Apps Script is running
+
+---
+
+## ✨ System Complete
+
+All features working:
+- ✅ Staff availability tracking
+- ✅ Roster planning
+- ✅ Staff schedule lookup  
+- ✅ Mobile-friendly interface
+- ✅ Data persistence
+- ✅ Auto-deployment
+
+**Enjoy your new roster system!** 🎊
