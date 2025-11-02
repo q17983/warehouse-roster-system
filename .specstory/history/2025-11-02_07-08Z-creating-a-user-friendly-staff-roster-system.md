@@ -29796,7 +29796,168 @@ Wait, the user said they sent out a form for Nov 10-16. Let me calculate:
 But the user is asking about Nov 10-16, which would be the week AFTER next week.
 
 The system is designed to plan for "next week" (the immediate upcoming Monday-Sunday period). If today is Nov 2 (Saturday), then:
-- Next week = Nov 3-9 (starts</details></think>
+- Next week = Nov 3-9 (starts Monday Nov 3)
+- Week after = Nov 10-16 (starts Monday Nov 10)
+
+The user's form is for Nov 10-16, but the system is configured to show Nov 3-9.
+
+This is the issue! The system is filtering for "next week" (Nov 3-9) but the form responses are for Nov 10-16.
+
+I need to explain this and show how to check what "next week" the system thinks it is.</details></think>
+
+---
+
+Ah! I see the potential issue. Let me explain how "next week" is calculated:
+
+## 📅 How "Next Week" Works
+
+**Today is November 2, 2025 (Saturday)**
+
+The system calculates "next week" as:
+- **This week's Monday:** October 27
+- **Next week's Monday:** November 4 (not November 3!)
+- **Next week:** November 4-10 (Monday to Sunday)
+
+Wait, let me verify the exact logic. Let me create a test to show what dates the system is expecting:
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="write">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/app/api/debug/next-week/route.ts</summary>
+
+**Chunk 1**
+Lines added: 38, lines removed: 1
+
+```diff
+@@ -1,1 +1,38 @@
+- 
++ import { NextResponse } from &#39;next/server&#39;;
++ import { getNextWeekDates, getNextWeekStart, getNextWeekEnd, getNextWeekRange, isInNextWeek } from &#39;@/lib/weekUtils&#39;;
++ import { format } from &#39;date-fns&#39;;
++ 
++ export async function GET() {
++   const today = new Date();
++   const nextWeekStart = getNextWeekStart();
++   const nextWeekEnd = getNextWeekEnd();
++   const nextWeekDates = getNextWeekDates();
++   const nextWeekRange = getNextWeekRange();
++   
++   // Test some specific dates
++   const testDates = [
++     &#39;2025-11-03&#39;,
++     &#39;2025-11-04&#39;, 
++     &#39;2025-11-05&#39;,
++     &#39;2025-11-10&#39;,
++     &#39;2025-11-11&#39;,
++     &#39;2025-11-16&#39;,
++   ];
++   
++   const dateTests = testDates.map(date =&gt; ({
++     date,
++     isInNextWeek: isInNextWeek(date),
++   }));
++   
++   return NextResponse.json({
++     today: format(today, &#39;yyyy-MM-dd (EEEE)&#39;),
++     nextWeek: {
++       range: nextWeekRange,
++       start: format(nextWeekStart, &#39;yyyy-MM-dd (EEEE)&#39;),
++       end: format(nextWeekEnd, &#39;yyyy-MM-dd (EEEE)&#39;),
++       dates: nextWeekDates,
++     },
++     testDates: dateTests,
++   });
++ }
++ 
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Add next-week debug endpoint to verify date filtering" && git push</summary>
+
+```bash
+cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Add next-week debug endpoint to verify date filtering" && git push
+```
+
+```
+[main b041cac] Add next-week debug endpoint to verify date filtering
+ Committer: Your Name &lt;sai@SAIdeMacBook-Air.local&gt;
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name &quot;Your Name&quot;
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 2 files changed, 1505 insertions(+)
+ create mode 100644 app/api/debug/next-week/route.ts
+To https://github.com/q17983/warehouse-roster-system.git
+   23d2731..b041cac  main -&gt; main
+
+```
+</details>
+</tool-use>
+
+---
+
+<think><details><summary>Thought Process</summary>
+I've created a debug endpoint to check what dates the system considers "next week". After it deploys, the user can visit it to see exactly what date range the system is filtering for.
+
+The issue is likely that:
+1. The form responses in the Google Sheet are for old dates (Nov 3-9) shown in the screenshot
+2. OR the system's calculation of "next week" doesn't match when the user sent the form
+3. OR the Apps Script isn't extracting the correct dates from the form headers
+
+Let me wait for deployment and have the user check what dates the system expects.</details></think>
+
+---
+
+Perfect! After deployment (~2 minutes), visit this URL:
+
+```
+https://warehouse-roster-system-production.up.railway.app/api/debug/next-week
+```
+
+This will show you **EXACTLY** what dates the system considers "next week" and which dates will be accepted.
+
+It will show:
+- What "next week" is (e.g., "Nov 4-10" or "Nov 10-16")
+- Whether Nov 10, Nov 11, Nov 16, etc. are "in next week"
+
+---
+
+## Most Likely Issues:
+
+### Issue 1: Date Mismatch
+- Your form asks for Nov 10-16
+- But system expects Nov 3-9 or Nov 4-10
+- Solution: Check what `/api/debug/next-week` says
+
+### Issue 2: Apps Script Date Extraction
+The Apps Script `extractDateFromHeader` function might not be reading the dates correctly from your form questions.
+
+**Check your form question headers** - they should look like:
+```
+Available [Mon, Nov 10, 25]
+Available [Tue, Nov 11, 25]
+```
+
+### Issue 3: Old Data Still in Sheet
+The screenshot shows Nov 3-9 responses. If those are still the most recent, the system will use those, not Nov 10-16.
+
+---
+
+**Wait for deployment, then visit `/api/debug/next-week` and send me the JSON. That will tell us exactly what's happening!**
 
 ---
 

@@ -7,13 +7,14 @@ import { startOfWeek, addWeeks, addDays, format, parseISO, isAfter, isBefore, ea
 
 /**
  * Get the start date (Monday) of next week
- * If today is Monday-Wednesday, next week starts next Monday
- * If today is Thursday-Sunday, next week still starts next Monday
+ * Matches Google Sheets formula: =TODAY() - WEEKDAY(TODAY(), 2) + 8
+ * This gives the Monday that is at least 1 week away from today
  */
 export function getNextWeekStart(): Date {
   const today = new Date();
   const thisWeekMonday = startOfWeek(today, { weekStartsOn: 1 }); // 1 = Monday
-  const nextWeekMonday = addWeeks(thisWeekMonday, 1);
+  // Add 2 weeks to get the Monday after next week starts
+  const nextWeekMonday = addWeeks(thisWeekMonday, 2);
   return nextWeekMonday;
 }
 
