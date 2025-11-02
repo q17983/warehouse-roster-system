@@ -34,38 +34,55 @@ if (fs.existsSync(dbDir)) {
   }
 }
 
+// Use global singleton to ensure only ONE database instance across all API routes
+// This is critical for Next.js serverless functions
+declare global {
+  var __database: Database.Database | undefined;
+}
+
 let db: Database.Database;
-try {
-  // Check if database file exists
-  const dbExists = fs.existsSync(dbPath);
-  console.log(`[Database] Database file exists: ${dbExists} at ${dbPath}`);
-  
-  // Check directory permissions
+
+if (!global.__database) {
+  console.log('[Database] Creating NEW database instance');
   try {
-    const dbDir = path.dirname(dbPath);
-    fs.accessSync(dbDir, fs.constants.W_OK);
-    console.log(`[Database] Directory is writable: ${dbDir}`);
-  } catch (dirError) {
-    console.error(`[Database] Directory permission error:`, dirError);
+    // Check if database file exists
+    const dbExists = fs.existsSync(dbPath);
+    console.log(`[Database] Database file exists: ${dbExists} at ${dbPath}`);
+    
+    // Check directory permissions
+    try {
+      const dbDir = path.dirname(dbPath);
+      fs.accessSync(dbDir, fs.constants.W_OK);
+      console.log(`[Database] Directory is writable: ${dbDir}`);
+    } catch (dirError) {
+      console.error(`[Database] Directory permission error:`, dirError);
+    }
+    
+    db = new Database(dbPath);
+    console.log('[Database] Database opened successfully');
+    
+    // CRITICAL: Ensure writes are synced to disk immediately
+    // This is crucial for Railway/containerized environments
+    db.pragma('journal_mode = DELETE'); // Use DELETE mode instead of WAL for better persistence
+    db.pragma('synchronous = FULL'); // Force full sync to disk on every write
+    console.log('[Database] Set journal_mode=DELETE, synchronous=FULL for persistence');
+    
+    // Verify we can write to the database
+    db.prepare('SELECT 1').get();
+    console.log('[Database] Database read/write test passed');
+    
+    // Store in global to reuse across API routes
+    global.__database = db;
+    console.log('[Database] Stored in global cache');
+  } catch (error) {
+    console.error('[Database] Failed to open database:', error);
+    console.error('[Database] dbPath was:', dbPath);
+    console.error('[Database] Current working directory:', process.cwd());
+    throw error;
   }
-  
-  db = new Database(dbPath);
-  console.log('[Database] Database opened successfully');
-  
-  // CRITICAL: Ensure writes are synced to disk immediately
-  // This is crucial for Railway/containerized environments
-  db.pragma('journal_mode = DELETE'); // Use DELETE mode instead of WAL for better persistence
-  db.pragma('synchronous = FULL'); // Force full sync to disk on every write
-  console.log('[Database] Set journal_mode=DELETE, synchronous=FULL for persistence');
-  
-  // Verify we can write to the database
-  db.prepare('SELECT 1').get();
-  console.log('[Database] Database read/write test passed');
-} catch (error) {
-  console.error('[Database] Failed to open database:', error);
-  console.error('[Database] dbPath was:', dbPath);
-  console.error('[Database] Current working directory:', process.cwd());
-  throw error;
+} else {
+  console.log('[Database] Reusing EXISTING database instance from global cache');
+  db = global.__database;
 }
 
 // Initialize database tables
