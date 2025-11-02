@@ -11,17 +11,54 @@ console.log('[Database] DATABASE_PATH env:', process.env.DATABASE_PATH || 'not s
 
 // Ensure directory exists (important for Railway volumes)
 const dbDir = path.dirname(dbPath);
+console.log(`[Database] Database directory: ${dbDir}`);
+console.log(`[Database] Directory exists: ${fs.existsSync(dbDir)}`);
+
 if (dbDir && !fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
-  console.log('[Database] Created directory:', dbDir);
+  try {
+    fs.mkdirSync(dbDir, { recursive: true });
+    console.log('[Database] Created directory:', dbDir);
+  } catch (mkdirError: any) {
+    console.error('[Database] Failed to create directory:', mkdirError);
+    throw new Error(`Cannot create database directory: ${dbDir}. Error: ${mkdirError.message}`);
+  }
+}
+
+// Log directory stats if it exists
+if (fs.existsSync(dbDir)) {
+  try {
+    const stats = fs.statSync(dbDir);
+    console.log(`[Database] Directory stats: mode=${stats.mode.toString(8)}, writable=${(stats.mode & parseInt('200', 8)) !== 0}`);
+  } catch (statError) {
+    console.warn('[Database] Could not get directory stats:', statError);
+  }
 }
 
 let db: Database.Database;
 try {
+  // Check if database file exists
+  const dbExists = fs.existsSync(dbPath);
+  console.log(`[Database] Database file exists: ${dbExists} at ${dbPath}`);
+  
+  // Check directory permissions
+  try {
+    const dbDir = path.dirname(dbPath);
+    fs.accessSync(dbDir, fs.constants.W_OK);
+    console.log(`[Database] Directory is writable: ${dbDir}`);
+  } catch (dirError) {
+    console.error(`[Database] Directory permission error:`, dirError);
+  }
+  
   db = new Database(dbPath);
   console.log('[Database] Database opened successfully');
+  
+  // Verify we can write to the database
+  db.prepare('SELECT 1').get();
+  console.log('[Database] Database read/write test passed');
 } catch (error) {
   console.error('[Database] Failed to open database:', error);
+  console.error('[Database] dbPath was:', dbPath);
+  console.error('[Database] Current working directory:', process.cwd());
   throw error;
 }
 

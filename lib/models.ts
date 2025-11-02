@@ -101,15 +101,25 @@ export const RosterModel = {
   },
 
   getByStaffId: (staffId: number): string[] => {
+    console.log(`[RosterModel] getByStaffId(${staffId}): Querying roster table...`);
+    const allRoster = db.prepare('SELECT * FROM roster').all() as RosterAssignment[];
+    console.log(`[RosterModel] Total roster entries in DB:`, allRoster.length);
+    console.log(`[RosterModel] All roster entries:`, JSON.stringify(allRoster, null, 2));
+    
     const result = db.prepare('SELECT date FROM roster WHERE staff_id = ? ORDER BY date').all(staffId) as RosterAssignment[];
     const dates = result.map(r => r.date);
     console.log(`[RosterModel] getByStaffId(${staffId}): Found ${dates.length} dates:`, dates);
+    console.log(`[RosterModel] Raw query result for staffId ${staffId}:`, result);
     return dates;
   },
 
   add: (staffId: number, date: string, slotNumber: number = 1): RosterAssignment => {
+    console.log(`[RosterModel] add(): Adding staffId=${staffId}, date=${date}, slotNumber=${slotNumber}`);
     const result = db.prepare('INSERT OR REPLACE INTO roster (staff_id, date, slot_number) VALUES (?, ?, ?)').run(staffId, date, slotNumber);
-    return db.prepare('SELECT * FROM roster WHERE staff_id = ? AND date = ? AND slot_number = ?').get(staffId, date, slotNumber) as RosterAssignment;
+    console.log(`[RosterModel] add(): INSERT result:`, { changes: result.changes, lastInsertRowid: result.lastInsertRowid });
+    const inserted = db.prepare('SELECT * FROM roster WHERE staff_id = ? AND date = ? AND slot_number = ?').get(staffId, date, slotNumber) as RosterAssignment;
+    console.log(`[RosterModel] add(): Verified insertion:`, inserted);
+    return inserted;
   },
 
   remove: (staffId: number, date: string, slotNumber?: number): void => {
