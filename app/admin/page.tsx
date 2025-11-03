@@ -1,16 +1,31 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import StaffManagement from './components/StaffManagement';
 import styles from './admin.module.css';
 
 export default function AdminPanel() {
+  const router = useRouter();
+
+  // Check authentication on mount
+  useEffect(() => {
+    const token = sessionStorage.getItem('admin_auth');
+    if (!token) {
+      router.push('/admin/login');
+    }
+  }, [router]);
   const [processing, setProcessing] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string; stats?: any; timestamp?: string } | null>(null);
   const [webAppUrl, setWebAppUrl] = useState('');
   const [csvUrl, setCsvUrl] = useState('');
   const [configLoaded, setConfigLoaded] = useState(false);
   const [clearing, setClearing] = useState(false);
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('admin_auth');
+    router.push('/admin/login');
+  };
 
   // Load pre-configured URLs from environment on mount
   useEffect(() => {
@@ -111,8 +126,15 @@ export default function AdminPanel() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1 className={styles.title}>Admin Panel</h1>
-        <p className={styles.subtitle}>Process Google Sheets Data</p>
+        <div className={styles.headerTop}>
+          <div>
+            <h1 className={styles.title}>Admin Panel</h1>
+            <p className={styles.subtitle}>Process Google Sheets Data</p>
+          </div>
+          <button onClick={handleLogout} className={styles.logoutButton} title="Logout">
+            🚪 Logout
+          </button>
+        </div>
       </div>
 
       <div className={styles.card}>
