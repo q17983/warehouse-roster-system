@@ -28,6 +28,17 @@ export interface StaffWithAvailability extends Staff {
   scheduledDates: string[];
 }
 
+export interface AkeRequirement {
+  id: number;
+  date: string;
+  ms_ake: number;
+  et_ake: number;
+  per_ake: number;
+  total_ake: number;
+  created_at: string;
+  updated_at: string;
+}
+
 // Staff operations
 export const StaffModel = {
   getAll: async (): Promise<Staff[]> => {
@@ -168,4 +179,41 @@ export const getStaffWithSchedule = async (staffId: number): Promise<StaffWithAv
     availableDates,
     scheduledDates,
   };
+};
+
+// AKE Requirements operations
+export const AkeModel = {
+  getByDate: async (date: string): Promise<AkeRequirement | null> => {
+    const result = await pool.query(
+      'SELECT * FROM ake_requirements WHERE date = $1',
+      [date]
+    );
+    return result.rows[0] || null;
+  },
+
+  getAll: async (): Promise<AkeRequirement[]> => {
+    const result = await pool.query(
+      'SELECT * FROM ake_requirements ORDER BY date DESC'
+    );
+    return result.rows;
+  },
+
+  save: async (date: string, msAke: number, etAke: number, perAke: number): Promise<AkeRequirement> => {
+    const total = msAke + etAke + perAke;
+    
+    const result = await pool.query(
+      `INSERT INTO ake_requirements (date, ms_ake, et_ake, per_ake, total_ake, updated_at)
+       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+       ON CONFLICT (date) 
+       DO UPDATE SET 
+         ms_ake = $2,
+         et_ake = $3,
+         per_ake = $4,
+         total_ake = $5,
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING *`,
+      [date, msAke, etAke, perAke, total]
+    );
+    return result.rows[0];
+  },
 };

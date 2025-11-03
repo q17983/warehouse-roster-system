@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import StaffManagement from './components/StaffManagement';
+import AkeReport from './components/AkeReport';
 import styles from './admin.module.css';
 
 export default function AdminPanel() {
@@ -292,6 +293,15 @@ DATABASE_PATH=./roster.db`}
           Edit staff names, fix phone numbers, or remove duplicate entries.
         </p>
         <StaffManagement />
+      </div>
+
+      {/* AKE Requirements Report */}
+      <div className={styles.card}>
+        <h2 className={styles.cardTitle}>AKE Requirements Report</h2>
+        <p className={styles.description}>
+          View AKE requirements set by leaders for each day. Leaders can input these in the roster planning page.
+        </p>
+        <AkeReport />
       </div>
 
       <div className={styles.backLink}>

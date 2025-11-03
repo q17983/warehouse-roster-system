@@ -28,6 +28,14 @@ export default function CalendarView() {
   const [roster, setRoster] = useState<{ [date: string]: Staff[] }>({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  
+  // AKE requirements state
+  const [showAkeModal, setShowAkeModal] = useState(false);
+  const [akeDate, setAkeDate] = useState<string | null>(null);
+  const [msAke, setMsAke] = useState('');
+  const [etAke, setEtAke] = useState('');
+  const [perAke, setPerAke] = useState('');
+  const [akeData, setAkeData] = useState<{ [date: string]: { ms: number; et: number; per: number; total: number } }>({});
 
   // Show next week only (Monday-Sunday, 7 days)
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 }); // Monday
@@ -36,9 +44,10 @@ export default function CalendarView() {
     end: addDays(weekStart, 6), // Monday to Sunday = 7 days
   });
 
-  // Load roster for current week on mount
+  // Load roster and AKE data for current week
   useEffect(() => {
     loadRosterForWeek();
+    loadAkeForWeek();
   }, [currentWeek]);
 
   const loadRosterForWeek = async () => {
@@ -56,6 +65,76 @@ export default function CalendarView() {
       }
     }
     setRoster(rosterData);
+  };
+
+  const loadAkeForWeek = async () => {
+    const akeDataMap: { [date: string]: { ms: number; et: number; per: number; total: number } } = {};
+    for (const day of weekDays) {
+      const dateStr = format(day, 'yyyy-MM-dd');
+      try {
+        const response = await fetch(`/api/ake/${dateStr}`);
+        const data = await response.json();
+        if (data.success && data.ake) {
+          akeDataMap[dateStr] = {
+            ms: data.ake.ms_ake || 0,
+            et: data.ake.et_ake || 0,
+            per: data.ake.per_ake || 0,
+            total: data.ake.total_ake || 0,
+          };
+        }
+      } catch (error) {
+        // Ignore errors
+      }
+    }
+    setAkeData(akeDataMap);
+  };
+
+  const handleAkeClick = async (date: string) => {
+    setAkeDate(date);
+    const existing = akeData[date];
+    setMsAke(existing?.ms?.toString() || '');
+    setEtAke(existing?.et?.toString() || '');
+    setPerAke(existing?.per?.toString() || '');
+    setShowAkeModal(true);
+  };
+
+  const handleSaveAke = async () => {
+    if (!akeDate) return;
+
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/ake/${akeDate}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          msAke: msAke || '0',
+          etAke: etAke || '0',
+          perAke: perAke || '0',
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setAkeData(prev => ({
+          ...prev,
+          [akeDate]: {
+            ms: data.ake.ms_ake,
+            et: data.ake.et_ake,
+            per: data.ake.per_ake,
+            total: data.ake.total_ake,
+          },
+        }));
+        setShowAkeModal(false);
+      } else {
+        alert('Failed to save AKE data');
+      }
+    } catch (error) {
+      console.error('Error saving AKE:', error);
+      alert('Failed to save AKE data');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDateClick = async (date: string) => {
@@ -196,6 +275,27 @@ export default function CalendarView() {
                 )}
               </div>
 
+              {/* AKE Requirements Display & Button */}
+              <div className={styles.akeSection}>
+                {akeData[dateStr] && akeData[dateStr].total > 0 ? (
+                  <div className={styles.akeDisplay}>
+                    <div className={styles.akeLabel}>AKE Required:</div>
+                    <div className={styles.akeValues}>
+                      <span className={styles.akeItem}>MS: {akeData[dateStr].ms}</span>
+                      <span className={styles.akeItem}>ET: {akeData[dateStr].et}</span>
+                      <span className={styles.akeItem}>PER: {akeData[dateStr].per}</span>
+                      <span className={styles.akeTotal}>Total: {akeData[dateStr].total}</span>
+                    </div>
+                  </div>
+                ) : null}
+                <button
+                  onClick={() => handleAkeClick(dateStr)}
+                  className={styles.akeButton}
+                >
+                  {akeData[dateStr] && akeData[dateStr].total > 0 ? '✏️ Edit AKE' : '➕ Set AKE'}
+                </button>
+              </div>
+
               {/* Assign Button - Large Touch Target */}
               <button
                 onClick={() => handleDateClick(dateStr)}
@@ -255,6 +355,81 @@ export default function CalendarView() {
                 disabled={saving}
               >
                 {saving ? 'Saving...' : selectedStaffIds.length === 0 ? 'Clear Assignments' : `Save (${selectedStaffIds.length})`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AKE Requirements Modal */}
+      {showAkeModal && akeDate && (
+        <div className={styles.modalOverlay} onClick={() => setShowAkeModal(false)}>
+          <div className={styles.akeModal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h2>Set AKE Requirements</h2>
+              <button onClick={() => setShowAkeModal(false)} className={styles.closeButton}>×</button>
+            </div>
+
+            <div className={styles.akeModalContent}>
+              <div className={styles.dateLabel}>
+                {format(parseISO(akeDate), 'EEEE, MMM d, yyyy')}
+              </div>
+
+              {/* MS AKE */}
+              <div className={styles.akeInputGroup}>
+                <label>MS 馬莎 AKE</label>
+                <input
+                  type="number"
+                  value={msAke}
+                  onChange={(e) => setMsAke(e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  className={styles.akeInput}
+                />
+              </div>
+
+              {/* ET AKE */}
+              <div className={styles.akeInputGroup}>
+                <label>ET 肯亞菜 AKE</label>
+                <input
+                  type="number"
+                  value={etAke}
+                  onChange={(e) => setEtAke(e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  className={styles.akeInput}
+                />
+              </div>
+
+              {/* PER AKE */}
+              <div className={styles.akeInputGroup}>
+                <label>PER 鮮活 AKE</label>
+                <input
+                  type="number"
+                  value={perAke}
+                  onChange={(e) => setPerAke(e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  className={styles.akeInput}
+                />
+              </div>
+
+              {/* Total Display */}
+              <div className={styles.akeTotal}>
+                <strong>Total AKE:</strong> {(parseInt(msAke) || 0) + (parseInt(etAke) || 0) + (parseInt(perAke) || 0)}
+              </div>
+            </div>
+
+            <div className={styles.modalActions}>
+              <button onClick={() => setShowAkeModal(false)} className={styles.cancelButton}>
+                Cancel
+              </button>
+              <button 
+                onClick={handleSaveAke} 
+                className={styles.saveButton}
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : 'Save'}
               </button>
             </div>
           </div>

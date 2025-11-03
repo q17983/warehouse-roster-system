@@ -158,6 +158,67 @@
   padding: 0.5rem 0;
 }
 
+/* AKE Section */
+.akeSection {
+  margin-bottom: 0.75rem;
+}
+
+.akeDisplay {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.akeLabel {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #856404;
+  margin-bottom: 0.5rem;
+}
+
+.akeValues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.akeItem {
+  background: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+  color: #856404;
+}
+
+.akeTotal {
+  background: #ffc107;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 700;
+  color: #333;
+}
+
+.akeButton {
+  width: 100%;
+  padding: 0.75rem;
+  background: #ffc107;
+  color: #333;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.akeButton:active {
+  background: #e0a800;
+  transform: scale(0.98);
+}
+
 /* Assign Button - Large Touch Target */
 .assignButton {
   width: 100%;
@@ -386,6 +447,70 @@
 .saveButton:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* AKE Modal */
+.akeModal {
+  background: white;
+  border-radius: 20px 20px 0 0;
+  width: 100%;
+  max-width: 500px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease-out;
+}
+
+.akeModalContent {
+  padding: 1.5rem;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.dateLabel {
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #667eea;
+  margin-bottom: 1.5rem;
+}
+
+.akeInputGroup {
+  margin-bottom: 1.25rem;
+}
+
+.akeInputGroup label {
+  display: block;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+}
+
+.akeInput {
+  width: 100%;
+  padding: 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  transition: border-color 0.2s;
+}
+
+.akeInput:focus {
+  outline: none;
+  border-color: #ffc107;
+}
+
+.akeTotal {
+  background: #f0f8ff;
+  border: 2px solid #667eea;
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+  font-size: 1.1rem;
+  color: #667eea;
+  margin-top: 0.5rem;
 }
 
 /* Desktop adjustments */

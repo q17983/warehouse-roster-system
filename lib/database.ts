@@ -49,12 +49,27 @@ export async function initializeDatabase() {
       )
     `);
 
+    // AKE requirements tracking
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ake_requirements (
+        id SERIAL PRIMARY KEY,
+        date TEXT NOT NULL UNIQUE,
+        ms_ake INTEGER DEFAULT 0,
+        et_ake INTEGER DEFAULT 0,
+        per_ake INTEGER DEFAULT 0,
+        total_ake INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Create indexes
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_availability_date ON availability(date);
       CREATE INDEX IF NOT EXISTS idx_availability_staff ON availability(staff_id);
       CREATE INDEX IF NOT EXISTS idx_roster_date ON roster(date);
       CREATE INDEX IF NOT EXISTS idx_roster_staff ON roster(staff_id);
+      CREATE INDEX IF NOT EXISTS idx_ake_date ON ake_requirements(date);
     `);
   } finally {
     client.release();
