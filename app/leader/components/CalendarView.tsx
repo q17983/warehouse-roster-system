@@ -252,9 +252,9 @@ export default function CalendarView() {
               <button 
                 onClick={handleSave} 
                 className={styles.saveButton}
-                disabled={saving || selectedStaffIds.length === 0}
+                disabled={saving}
               >
-                {saving ? 'Saving...' : `Save ${selectedStaffIds.length} Staff`}
+                {saving ? 'Saving...' : selectedStaffIds.length === 0 ? 'Clear Assignments' : `Save (${selectedStaffIds.length})`}
               </button>
             </div>
           </div>
