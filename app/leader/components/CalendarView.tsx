@@ -94,6 +94,7 @@ export default function CalendarView() {
   const handleSave = async () => {
     if (!selectedDate) return;
 
+    // Allow saving 0 staff (to clear assignments)
     setSaving(true);
     try {
       const response = await fetch(`/api/roster/${selectedDate}`, {
@@ -111,9 +112,10 @@ export default function CalendarView() {
           [selectedDate]: data.roster,
         }));
         
+        // Close modal without alert - visual feedback is enough
         setSelectedDate(null);
-        alert('Roster saved!');
       } else {
+        // Only show alert on error
         alert('Failed to save roster');
       }
     } catch (error) {
