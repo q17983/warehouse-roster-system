@@ -78,6 +78,9 @@ export default function StaffSearchView() {
     }
   };
 
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+
   const handleSaveAsPhoto = async () => {
     if (!scheduleRef.current || !schedule) return;
 
@@ -85,22 +88,15 @@ export default function StaffSearchView() {
     try {
       const canvas = await html2canvas(scheduleRef.current, {
         backgroundColor: '#ffffff',
-        scale: 2, // Higher quality
+        scale: 2, // Higher quality for sharp image
       });
 
-      // Convert to blob and download
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          const weekStr = format(currentWeek, 'MMM-dd');
-          link.download = `${schedule.name}_Schedule_${weekStr}.png`;
-          link.href = url;
-          link.click();
-          URL.revokeObjectURL(url);
-        }
-        setSaving(false);
-      });
+      // Convert to data URL for display
+      const dataUrl = canvas.toDataURL('image/png');
+      setImageDataUrl(dataUrl);
+      setShowImageModal(true);
+      
+      setSaving(false);
     } catch (error) {
       console.error('Error saving photo:', error);
       alert('Failed to save as photo');
@@ -234,8 +230,8 @@ export default function StaffSearchView() {
                   )}
                 </div>
 
-                {/* Available Dates for This Week */}
-                <div className={styles.scheduleGroup}>
+                {/* Available Dates - Only show in UI, not in photo */}
+                <div className={`${styles.scheduleGroup} ${styles.availableSection}`}>
                   <h3 className={styles.groupTitle}>
                     ✅ Available ({availableThisWeek.length})
                   </h3>
@@ -269,12 +265,44 @@ export default function StaffSearchView() {
                 {saving ? '⏳ Saving...' : '📸 Save as Photo'}
               </button>
               <p className={styles.hint}>
-                Save the schedule and share via WhatsApp
+                Tap to create image, then long-press and save to Photos
               </p>
             </>
           ) : (
             <div className={styles.emptyMessage}>Select a staff member to view their schedule</div>
           )}
+        </div>
+      )}
+
+      {/* Image Modal for iPhone - Long Press to Save */}
+      {showImageModal && imageDataUrl && (
+        <div className={styles.imageModal} onClick={() => setShowImageModal(false)}>
+          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h3>📸 Staff Schedule</h3>
+              <button onClick={() => setShowImageModal(false)} className={styles.closeButton}>
+                ✕
+              </button>
+            </div>
+            
+            <div className={styles.imageContainer}>
+              <img 
+                src={imageDataUrl} 
+                alt="Staff Schedule"
+                className={styles.scheduleImage}
+              />
+            </div>
+            
+            <div className={styles.modalInstructions}>
+              <p><strong>On iPhone:</strong> Long-press image → "Add to Photos"</p>
+              <p><strong>On Android:</strong> Long-press image → "Download image"</p>
+              <p>Then share via WhatsApp from your Photos</p>
+            </div>
+            
+            <button onClick={() => setShowImageModal(false)} className={styles.doneButton}>
+              Done
+            </button>
+          </div>
         </div>
       )}
     </div>
