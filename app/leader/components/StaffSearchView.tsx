@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { format, parseISO } from 'date-fns';
+import { useState, useEffect, useRef } from 'react';
+import { format, parseISO, startOfWeek, addWeeks, addDays, eachDayOfInterval } from 'date-fns';
+import html2canvas from 'html2canvas';
 import styles from './StaffSearchView.module.css';
 
 interface Staff {
@@ -15,11 +16,22 @@ interface StaffSchedule extends Staff {
   scheduledDates: string[];
 }
 
+// Helper to get next week start (matches calendar)
+function getNextWeekStart(): Date {
+  const today = new Date();
+  const thisWeekMonday = startOfWeek(today, { weekStartsOn: 1 });
+  return addWeeks(thisWeekMonday, 1);
+}
+
 export default function StaffSearchView() {
   const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedStaffId, setSelectedStaffId] = useState<number | null>(null);
   const [schedule, setSchedule] = useState<StaffSchedule | null>(null);
   const [loading, setLoading] = useState(false);
+  const [currentWeek, setCurrentWeek] = useState(getNextWeekStart());
+  const [saving, setSaving] = useState(false);
+  const scheduleRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadStaffList();
@@ -48,19 +60,14 @@ export default function StaffSearchView() {
       const response = await fetch(`/api/staff/${staffId}/schedule`);
       const data = await response.json();
       
-      console.log('Schedule API response:', data);
-      
       if (data.success && data.staff) {
-        // Ensure arrays exist (handle undefined/null)
         const scheduleData = {
           ...data.staff,
           scheduledDates: data.staff.scheduledDates || [],
           availableDates: data.staff.availableDates || [],
         };
-        console.log('Setting schedule:', scheduleData);
         setSchedule(scheduleData);
       } else {
-        console.error('API returned error:', data);
         alert(`Failed to load schedule: ${data.message || 'Unknown error'}`);
       }
     } catch (error) {
@@ -71,72 +78,200 @@ export default function StaffSearchView() {
     }
   };
 
+  const handleSaveAsPhoto = async () => {
+    if (!scheduleRef.current || !schedule) return;
+
+    setSaving(true);
+    try {
+      const canvas = await html2canvas(scheduleRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2, // Higher quality
+      });
+
+      // Convert to blob and download
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          const weekStr = format(currentWeek, 'MMM-dd');
+          link.download = `${schedule.name}_Schedule_${weekStr}.png`;
+          link.href = url;
+          link.click();
+          URL.revokeObjectURL(url);
+        }
+        setSaving(false);
+      });
+    } catch (error) {
+      console.error('Error saving photo:', error);
+      alert('Failed to save as photo');
+      setSaving(false);
+    }
+  };
+
+  const nextWeek = () => {
+    setCurrentWeek(addWeeks(currentWeek, 1));
+  };
+
+  const prevWeek = () => {
+    setCurrentWeek(addWeeks(currentWeek, -1));
+  };
+
+  const goToNextWeek = () => {
+    setCurrentWeek(getNextWeekStart());
+  };
+
+  // Filter dates for current week
+  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+  const weekDays = eachDayOfInterval({
+    start: weekStart,
+    end: addDays(weekStart, 6),
+  });
+  const weekDatesStr = weekDays.map(d => format(d, 'yyyy-MM-dd'));
+
+  const scheduledThisWeek = schedule?.scheduledDates.filter(date => 
+    weekDatesStr.includes(date)
+  ) || [];
+
+  const availableThisWeek = schedule?.availableDates.filter(date => 
+    weekDatesStr.includes(date)
+  ) || [];
+
+  // Filter staff list by search
+  const filteredStaff = staffList.filter(staff =>
+    staff.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    staff.phone?.includes(searchTerm)
+  );
+
   return (
     <div className={styles.container}>
+      {/* Staff Selection Section */}
       <div className={styles.searchSection}>
         <h2 className={styles.sectionTitle}>Select Staff Member</h2>
+        
+        {/* Search Box */}
+        <input
+          type="text"
+          placeholder="🔍 Search by name or phone..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className={styles.searchInput}
+        />
+
+        {/* Staff Grid - Better Layout for 20+ staff */}
         <div className={styles.staffGrid}>
-          {staffList.map((staff) => (
-            <button
-              key={staff.id}
-              onClick={() => handleStaffSelect(staff.id)}
-              className={`${styles.staffCard} ${selectedStaffId === staff.id ? styles.selected : ''}`}
-            >
-              <div className={styles.staffName}>{staff.name}</div>
-              {staff.phone && (
-                <div className={styles.staffPhone}>{staff.phone}</div>
-              )}
-            </button>
-          ))}
+          {filteredStaff.length === 0 ? (
+            <div className={styles.noResults}>No staff found</div>
+          ) : (
+            filteredStaff.map((staff) => (
+              <button
+                key={staff.id}
+                onClick={() => handleStaffSelect(staff.id)}
+                className={`${styles.staffCard} ${selectedStaffId === staff.id ? styles.selected : ''}`}
+              >
+                <div className={styles.staffName}>{staff.name}</div>
+                {staff.phone && (
+                  <div className={styles.staffPhone}>{staff.phone}</div>
+                )}
+              </button>
+            ))
+          )}
+        </div>
+        
+        <div className={styles.staffCount}>
+          {filteredStaff.length} of {staffList.length} staff
         </div>
       </div>
 
+      {/* Schedule Section - Week-by-Week View */}
       {selectedStaffId && (
         <div className={styles.scheduleSection}>
-          <h2 className={styles.sectionTitle}>
-            {schedule?.name || staffList.find(s => s.id === selectedStaffId)?.name || 'Staff'}'s Schedule
-          </h2>
-
           {loading ? (
             <div className={styles.loading}>Loading schedule...</div>
           ) : schedule ? (
             <>
-              <div className={styles.scheduleGroup}>
-                <h3 className={styles.groupTitle}>
-                  Scheduled Dates ({schedule.scheduledDates?.length || 0})
-                </h3>
-                {schedule.scheduledDates && schedule.scheduledDates.length > 0 ? (
-                  <div className={styles.dateList}>
-                    {schedule.scheduledDates.map((date) => (
-                      <div key={date} className={styles.dateBadge}>
-                        {format(parseISO(date), 'EEE, MMM d, yyyy')}
-                      </div>
-                    ))}
+              {/* Week Navigation */}
+              <div className={styles.weekNav}>
+                <button onClick={prevWeek} className={styles.navButton}>
+                  ←
+                </button>
+                <div className={styles.weekInfo}>
+                  <div className={styles.weekRange}>
+                    {format(weekStart, 'MMM d')} - {format(addDays(weekStart, 6), 'MMM d, yyyy')}
                   </div>
-                ) : (
-                  <div className={styles.emptyMessage}>No scheduled dates found</div>
+                  <button onClick={goToNextWeek} className={styles.todayButton}>
+                    📅 Next Week
+                  </button>
+                </div>
+                <button onClick={nextWeek} className={styles.navButton}>
+                  →
+                </button>
+              </div>
+
+              {/* Schedule Card - Ready for Screenshot */}
+              <div ref={scheduleRef} className={styles.scheduleCard}>
+                <div className={styles.cardHeader}>
+                  <h2 className={styles.staffTitle}>{schedule.name}</h2>
+                  <div className={styles.weekLabel}>
+                    {format(weekStart, 'MMM d')} - {format(addDays(weekStart, 6), 'MMM d, yyyy')}
+                  </div>
+                </div>
+
+                {/* Scheduled Dates for This Week */}
+                <div className={styles.scheduleGroup}>
+                  <h3 className={styles.groupTitle}>
+                    🗓️ Scheduled to Work ({scheduledThisWeek.length})
+                  </h3>
+                  {scheduledThisWeek.length > 0 ? (
+                    <div className={styles.dateList}>
+                      {scheduledThisWeek.map((date) => (
+                        <div key={date} className={styles.scheduledBadge}>
+                          {format(parseISO(date), 'EEE, MMM d')}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className={styles.emptyMessage}>No scheduled dates this week</div>
+                  )}
+                </div>
+
+                {/* Available Dates for This Week */}
+                <div className={styles.scheduleGroup}>
+                  <h3 className={styles.groupTitle}>
+                    ✅ Available ({availableThisWeek.length})
+                  </h3>
+                  {availableThisWeek.length > 0 ? (
+                    <div className={styles.dateList}>
+                      {availableThisWeek.map((date) => (
+                        <div key={date} className={styles.availableBadge}>
+                          {format(parseISO(date), 'EEE, MMM d')}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className={styles.emptyMessage}>No available dates this week</div>
+                  )}
+                </div>
+
+                {/* Footer with Contact Info */}
+                {schedule.phone && (
+                  <div className={styles.cardFooter}>
+                    📱 {schedule.phone}
+                  </div>
                 )}
               </div>
 
-              <div className={styles.scheduleGroup}>
-                <h3 className={styles.groupTitle}>
-                  Available Dates ({schedule.availableDates?.length || 0})
-                </h3>
-                {schedule.availableDates && schedule.availableDates.length > 0 ? (
-                  <div className={styles.dateList}>
-                    {schedule.availableDates.map((date) => (
-                      <div key={date} className={`${styles.dateBadge} ${styles.available}`}>
-                        {format(parseISO(date), 'EEE, MMM d, yyyy')}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className={styles.emptyMessage}>No available dates found</div>
-                )}
-              </div>
+              {/* Save as Photo Button */}
+              <button
+                onClick={handleSaveAsPhoto}
+                disabled={saving}
+                className={styles.savePhotoButton}
+              >
+                {saving ? '⏳ Saving...' : '📸 Save as Photo'}
+              </button>
+              <p className={styles.hint}>
+                Save the schedule and share via WhatsApp
+              </p>
             </>
-          ) : selectedStaffId ? (
-            <div className={styles.emptyMessage}>No schedule data found for this staff member</div>
           ) : (
             <div className={styles.emptyMessage}>Select a staff member to view their schedule</div>
           )}
@@ -145,4 +280,3 @@ export default function StaffSearchView() {
     </div>
   );
 }
-
