@@ -31594,3 +31594,237 @@ This would mean:
 
 ---
 
+_**User (2025-11-02 09:46Z)**_
+
+i want option B,, as long as what date the staff is submitted ,, we will keep that answer dont assume,,, also,, please check again the formula,,, as our google sheet is showing correct =TODAY() - WEEKDAY(TODAY(), 2) + 8 and the result is 03NOV2025 monday
+
+---
+
+_**Agent (model claude-4.5-sonnet-thinking, mode Agent)**_
+
+<think><details><summary>Thought Process</summary>
+The user wants Option B - show ALL dates that staff submit, no filtering.
+
+Also, they're saying the Google Sheets formula `=TODAY() - WEEKDAY(TODAY(), 2) + 8` gives Nov 3, 2025 (Monday) not Nov 4.
+
+Let me recalculate:
+- TODAY() = Nov 2, 2025 (Saturday)
+- WEEKDAY(Nov 2, 2025, 2) where 2 means Monday=1
+  - In Google Sheets with mode 2: Monday=1, Tuesday=2, ..., Sunday=7
+  - Nov 2, 2025 is Saturday = 6
+- Formula: Nov 2 - 6 + 8 = Nov 2 + 2 = Nov 4
+
+Hmm, but they're saying it shows Nov 3. Let me think... Oh wait, maybe there's confusion about the date representation. Or maybe Google Sheets is showing Nov 3 because of how it's being interpreted.
+
+Actually, I should just trust what the user is seeing in Google Sheets. They say the formula gives Nov 3 (Monday), so I should make the system use Nov 3 as the start.
+
+But wait - they want Option B, which means NO filtering. So I should:
+1. Remove the "next week" filtering from brain.ts
+2. Process ALL availability dates regardless of which week
+3. Show whatever dates staff submit
+
+This is actually simpler! Let me do that.</details></think>
+
+---
+
+You're right! Let me fix both issues:
+
+1. **Remove date filtering** - show ALL dates staff submit
+2. **Fix the starting Monday** to match Google Sheets (Nov 3)
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/lib/brain.ts</summary>
+
+**Chunk 1**
+Lines added: 18, lines removed: 20
+
+```diff
+@@ -22,34 +22,32 @@
+    }
+  
+-   // Clear old availability for next week
+-   const nextWeekDates = getNextWeekDates();
+-   for (const date of nextWeekDates) {
+-     await AvailabilityModel.clearForDate(date);
+-   }
+- 
+-   // Sync availability (only for next week, latest submission only)
++   // Process availability - keep WHATEVER dates staff submitted (no filtering)
++   // Group by staff to ensure latest submission only
+    const staffAvailabilityMap = new Map&lt;string, Set&lt;string&gt;&gt;();
+    
+    for (const availability of cleanData.availability) {
+-     if (isInNextWeek(availability.date)) {
+-       const staff = await StaffModel.getByName(availability.staffName);
+-       if (staff) {
+-         if (!staffAvailabilityMap.has(availability.staffName)) {
+-           staffAvailabilityMap.set(availability.staffName, new Set());
+-         }
+-         staffAvailabilityMap.get(availability.staffName)!.add(availability.date);
+-       }
+-     }
+-   }
++     const staff = await StaffModel.getByName(availability.staffName);
++     if (staff) {
++       if (!staffAvailabilityMap.has(availability.staffName)) {
++         staffAvailabilityMap.set(availability.staffName, new Set());
++       }
++       staffAvailabilityMap.get(availability.staffName)!.add(availability.date);
++     }
++   }
+    
+-   // Add latest availability
++   // Clear each staff&#39;s old availability, then add their latest
+    let availabilityCount = 0;
+    for (const [staffName, dates] of staffAvailabilityMap.entries()) {
+      const staff = await StaffModel.getByName(staffName);
+      if (staff) {
+-       for (const date of nextWeekDates) {
+-         await AvailabilityModel.remove(staff.id, date);
++       // Get all existing availability for this staff
++       const existingDates = await AvailabilityModel.getByStaffId(staff.id);
++       
++       // Remove old availability
++       for (const oldDate of existingDates) {
++         await AvailabilityModel.remove(staff.id, oldDate);
+        }
+        
++       // Add their latest availability (whatever dates they submitted)
+        for (const date of dates) {
+          await AvailabilityModel.add(staff.id, date);
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/lib/weekUtils.ts</summary>
+
+**Chunk 1**
+Lines added: 3, lines removed: 3
+
+```diff
+@@ -9,11 +9,11 @@
+   * Get the start date (Monday) of next week
+   * Matches Google Sheets formula: =TODAY() - WEEKDAY(TODAY(), 2) + 8
+-  * This gives the Monday that is at least 1 week away from today
++  * This gives the upcoming Monday for roster planning
+   */
+  export function getNextWeekStart(): Date {
+    const today = new Date();
+    const thisWeekMonday = startOfWeek(today, { weekStartsOn: 1 }); // 1 = Monday
+-   // Add 2 weeks to get the Monday after next week starts
+-   const nextWeekMonday = addWeeks(thisWeekMonday, 2);
++   // Add 1 week to get next Monday
++   const nextWeekMonday = addWeeks(thisWeekMonday, 1);
+    return nextWeekMonday;
+  }
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: cd "/Users/sai/Warehouse management" && rm test-formula.js && git add -A && git commit -m "Remove date filtering - show ALL dates staff submit, fix next week to Nov 3" && git push</summary>
+
+```bash
+cd "/Users/sai/Warehouse management" && rm test-formula.js && git add -A && git commit -m "Remove date filtering - show ALL dates staff submit, fix next week to Nov 3" && git push
+```
+
+```
+[main 98353c6] Remove date filtering - show ALL dates staff submit, fix next week to Nov 3
+ Committer: Your Name &lt;sai@SAIdeMacBook-Air.local&gt;
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name &quot;Your Name&quot;
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 4 files changed, 746 insertions(+), 20 deletions(-)
+ create mode 100644 DUPLICATE_COLUMNS_EXPLAINED.md
+To https://github.com/q17983/warehouse-roster-system.git
+   5e3c536..98353c6  main -&gt; main
+
+```
+</details>
+</tool-use>
+
+---
+
+<think><details><summary>Thought Process</summary>
+Good! I've:
+1. Removed the date filtering from brain.ts - now it processes ALL dates staff submit, not just "next week"
+2. Fixed the calendar to show Nov 3 as start of next week (though with the filtering removed, this matters less)
+
+Now I should also update the calendar view to default to showing the current week or allow showing any week, since we're no longer filtering by "next week".
+
+Actually, the calendar defaults to "next week" which is fine for the UI - it's just a starting view. The leader can navigate to other weeks. But the key change is that the database now has ALL availability dates, not just next week.
+
+Let me make sure the changes are clear to the user.</details></think>
+
+---
+
+Perfect! I've made both changes:
+
+## ✅ Changes Made:
+
+### 1. Removed Date Filtering
+- Brain.ts now processes **ALL dates** staff submit
+- No more "next week" filtering
+- AC's Nov 4-8 → Will be saved
+- Future staff's Nov 10-16 → Will be saved
+- **Whatever they submit, we keep it!**
+
+### 2. Fixed Calendar Default
+- Calendar now starts at **Nov 3** (Monday)
+- Matches your Google Sheet formula exactly
+
+---
+
+## After Deployment (~2 minutes)
+
+### Update Apps Script First:
+1. **Google Sheet → Extensions → Apps Script**
+2. **Copy code** from `google-apps-script.js` 
+3. **Replace** all code in Apps Script editor
+4. Click **Save**
+5. **Deploy → Manage Deployments → Edit → New version → Deploy**
+
+### Then Test:
+1. **Admin → Click "Process Data"**
+2. Should now capture AC's Nov 4-8 availability
+3. **Leader App → Click Nov 4**
+4. Should show AC in the available staff list!
+
+---
+
+## How It Works Now
+
+**Simple logic:**
+- Staff submit → Apps Script reads ALL dates they checked
+- Process Data → Saves ALL those dates (no filtering)
+- Leader App → Shows staff available for ANY date they submitted
+
+**No assumptions, no filtering - just save exactly what staff submit!**
+
+---
+
+**Wait for deployment, update Apps Script, then process data again. AC's Nov 4-8 availability should appear!**
+
+---
+
