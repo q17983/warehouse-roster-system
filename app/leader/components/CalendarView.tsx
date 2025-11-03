@@ -231,7 +231,7 @@ export default function CalendarView() {
             {format(weekStart, 'MMM d')} - {format(addDays(weekStart, 6), 'MMM d, yyyy')}
           </div>
           {isSameDay(weekStart, getNextWeekStart()) && (
-            <div className={styles.planningBadge}>📅 Planning Next Week</div>
+            <div className={styles.planningBadge}>📅 規劃下週</div>
           )}
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -254,10 +254,10 @@ export default function CalendarView() {
               {/* Day Header */}
               <div className={styles.dayRowHeader}>
                 <div>
-                  <div className={styles.dayName}>{format(day, 'EEE')}</div>
+                  <div className={styles.dayName}>{format(day, 'EEE', { locale: undefined })}</div>
                   <div className={styles.dayDate}>{format(day, 'MMM d')}</div>
                 </div>
-                <div className={styles.staffCount}>{assignedStaff.length} assigned</div>
+                <div className={styles.staffCount}>{assignedStaff.length} 已分配</div>
               </div>
 
               {/* Assigned Staff - Show ALL, scrollable if needed */}
@@ -271,7 +271,7 @@ export default function CalendarView() {
                     ))}
                   </div>
                 ) : (
-                  <div className={styles.emptyDay}>No staff assigned</div>
+                  <div className={styles.emptyDay}>未分配員工</div>
                 )}
               </div>
 
@@ -279,12 +279,12 @@ export default function CalendarView() {
               <div className={styles.akeSection}>
                 {akeData[dateStr] && akeData[dateStr].total > 0 ? (
                   <div className={styles.akeDisplay}>
-                    <div className={styles.akeLabel}>AKE Required:</div>
+                    <div className={styles.akeLabel}>AKE 需求:</div>
                     <div className={styles.akeValues}>
                       <span className={styles.akeItem}>MS: {akeData[dateStr].ms}</span>
                       <span className={styles.akeItem}>ET: {akeData[dateStr].et}</span>
                       <span className={styles.akeItem}>PER: {akeData[dateStr].per}</span>
-                      <span className={styles.akeTotal}>Total: {akeData[dateStr].total}</span>
+                      <span className={styles.akeTotal}>總數: {akeData[dateStr].total}</span>
                     </div>
                   </div>
                 ) : null}
@@ -292,7 +292,7 @@ export default function CalendarView() {
                   onClick={() => handleAkeClick(dateStr)}
                   className={styles.akeButton}
                 >
-                  {akeData[dateStr] && akeData[dateStr].total > 0 ? '✏️ Edit AKE' : '➕ Set AKE'}
+                  {akeData[dateStr] && akeData[dateStr].total > 0 ? '✏️ 編輯 AKE' : '➕ 設定 AKE'}
                 </button>
               </div>
 
@@ -301,7 +301,7 @@ export default function CalendarView() {
                 onClick={() => handleDateClick(dateStr)}
                 className={styles.assignButton}
               >
-                {assignedStaff.length > 0 ? 'Edit Assignments' : 'Assign Staff'}
+                {assignedStaff.length > 0 ? '編輯分配' : '分配員工'}
               </button>
             </div>
           );
@@ -319,13 +319,13 @@ export default function CalendarView() {
 
             <div className={styles.modalContent}>
               {loading ? (
-                <div className={styles.loading}>Loading available staff...</div>
+                <div className={styles.loading}>載入可用員工中...</div>
               ) : availableStaff.length === 0 ? (
-                <div className={styles.emptyState}>No staff available on this date</div>
+                <div className={styles.emptyState}>此日期沒有可用員工</div>
               ) : (
                 <>
                   <div className={styles.selectedCount}>
-                    {selectedStaffIds.length} of {availableStaff.length} selected
+                    已選擇 {selectedStaffIds.length} / {availableStaff.length}
                   </div>
                   <div className={styles.staffSelectionList}>
                     {availableStaff.map((staff) => (
@@ -347,14 +347,14 @@ export default function CalendarView() {
 
             <div className={styles.modalActions}>
               <button onClick={() => setSelectedDate(null)} className={styles.cancelButton}>
-                Cancel
+                取消
               </button>
               <button 
                 onClick={handleSave} 
                 className={styles.saveButton}
                 disabled={saving}
               >
-                {saving ? 'Saving...' : selectedStaffIds.length === 0 ? 'Clear Assignments' : `Save (${selectedStaffIds.length})`}
+                {saving ? '儲存中...' : selectedStaffIds.length === 0 ? '清除分配' : `儲存 (${selectedStaffIds.length})`}
               </button>
             </div>
           </div>
@@ -366,7 +366,7 @@ export default function CalendarView() {
         <div className={styles.modalOverlay} onClick={() => setShowAkeModal(false)}>
           <div className={styles.akeModal} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
-              <h2>Set AKE Requirements</h2>
+              <h2>設定 AKE 需求</h2>
               <button onClick={() => setShowAkeModal(false)} className={styles.closeButton}>×</button>
             </div>
 
@@ -416,20 +416,20 @@ export default function CalendarView() {
 
               {/* Total Display */}
               <div className={styles.akeTotal}>
-                <strong>Total AKE:</strong> {(parseInt(msAke) || 0) + (parseInt(etAke) || 0) + (parseInt(perAke) || 0)}
+                <strong>總 AKE:</strong> {(parseInt(msAke) || 0) + (parseInt(etAke) || 0) + (parseInt(perAke) || 0)}
               </div>
             </div>
 
             <div className={styles.modalActions}>
               <button onClick={() => setShowAkeModal(false)} className={styles.cancelButton}>
-                Cancel
+                取消
               </button>
               <button 
                 onClick={handleSaveAke} 
                 className={styles.saveButton}
                 disabled={saving}
               >
-                {saving ? 'Saving...' : 'Save'}
+                {saving ? '儲存中...' : '儲存'}
               </button>
             </div>
           </div>

@@ -165,12 +165,12 @@ export default function StaffSearchView() {
     <div className={styles.container}>
       {/* Staff Selection Section */}
       <div className={styles.searchSection}>
-        <h2 className={styles.sectionTitle}>Select Staff Member</h2>
+        <h2 className={styles.sectionTitle}>選擇員工</h2>
         
         {/* Search Box */}
         <input
           type="text"
-          placeholder="🔍 Search by name or phone..."
+          placeholder="🔍 搜尋姓名或電話..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className={styles.searchInput}
@@ -179,7 +179,7 @@ export default function StaffSearchView() {
         {/* Staff Grid - Better Layout for 20+ staff */}
         <div className={styles.staffGrid}>
           {filteredStaff.length === 0 ? (
-            <div className={styles.noResults}>No staff found</div>
+            <div className={styles.noResults}>找不到員工</div>
           ) : (
             filteredStaff.map((staff) => (
               <button
@@ -197,7 +197,7 @@ export default function StaffSearchView() {
         </div>
         
         <div className={styles.staffCount}>
-          {filteredStaff.length} of {staffList.length} staff
+          {filteredStaff.length} / {staffList.length} 位員工
         </div>
       </div>
 
@@ -205,7 +205,7 @@ export default function StaffSearchView() {
       {selectedStaffId && (
         <div className={styles.scheduleSection}>
           {loading ? (
-            <div className={styles.loading}>Loading schedule...</div>
+            <div className={styles.loading}>載入時間表中...</div>
           ) : schedule ? (
             <>
               {/* Week Navigation */}
@@ -218,7 +218,7 @@ export default function StaffSearchView() {
                     {format(weekStart, 'MMM d')} - {format(addDays(weekStart, 6), 'MMM d, yyyy')}
                   </div>
                   <button onClick={goToNextWeek} className={styles.todayButton}>
-                    📅 Next Week
+                    📅 下週
                   </button>
                 </div>
                 <button onClick={nextWeek} className={styles.navButton}>
@@ -238,7 +238,7 @@ export default function StaffSearchView() {
                 {/* Scheduled Dates for This Week */}
                 <div className={styles.scheduleGroup}>
                   <h3 className={styles.groupTitle}>
-                    🗓️ Scheduled to Work ({scheduledThisWeek.length})
+                    🗓️ 已安排工作 ({scheduledThisWeek.length})
                   </h3>
                   {scheduledThisWeek.length > 0 ? (
                     <div className={styles.dateList}>
@@ -249,14 +249,14 @@ export default function StaffSearchView() {
                       ))}
                     </div>
                   ) : (
-                    <div className={styles.emptyMessage}>No scheduled dates this week</div>
+                    <div className={styles.emptyMessage}>本週沒有安排工作日期</div>
                   )}
                 </div>
 
                 {/* Available Dates - Show on web, hidden in photo */}
                 <div className={`${styles.scheduleGroup} availableSection`}>
                   <h3 className={styles.groupTitle}>
-                    ✅ Available ({availableThisWeek.length})
+                    ✅ 可工作 ({availableThisWeek.length})
                   </h3>
                   {availableThisWeek.length > 0 ? (
                     <div className={styles.dateList}>
@@ -267,7 +267,7 @@ export default function StaffSearchView() {
                       ))}
                     </div>
                   ) : (
-                    <div className={styles.emptyMessage}>No available dates this week</div>
+                    <div className={styles.emptyMessage}>本週沒有可工作日期</div>
                   )}
                 </div>
 
@@ -285,14 +285,14 @@ export default function StaffSearchView() {
                 disabled={saving}
                 className={styles.savePhotoButton}
               >
-                {saving ? '⏳ Saving...' : '📸 Save as Photo'}
+                {saving ? '⏳ 儲存中...' : '📸 儲存為圖片'}
               </button>
               <p className={styles.hint}>
-                Tap to create image, then long-press and save to Photos
+                點擊建立圖片，然後長按圖片並儲存到相簿
               </p>
             </>
           ) : (
-            <div className={styles.emptyMessage}>Select a staff member to view their schedule</div>
+            <div className={styles.emptyMessage}>選擇員工以查看其時間表</div>
           )}
         </div>
       )}
@@ -302,7 +302,7 @@ export default function StaffSearchView() {
         <div className={styles.imageModal} onClick={() => setShowImageModal(false)}>
           <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
-              <h3>📸 Staff Schedule</h3>
+              <h3>📸 員工時間表</h3>
               <button onClick={() => setShowImageModal(false)} className={styles.closeButton}>
                 ✕
               </button>
@@ -311,19 +311,19 @@ export default function StaffSearchView() {
             <div className={styles.imageContainer}>
               <img 
                 src={imageDataUrl} 
-                alt="Staff Schedule"
+                alt="員工時間表"
                 className={styles.scheduleImage}
               />
             </div>
             
             <div className={styles.modalInstructions}>
-              <p><strong>On iPhone:</strong> Long-press image → "Add to Photos"</p>
-              <p><strong>On Android:</strong> Long-press image → "Download image"</p>
-              <p>Then share via WhatsApp from your Photos</p>
+              <p><strong>iPhone:</strong> 長按圖片 → "加入相片"</p>
+              <p><strong>Android:</strong> 長按圖片 → "下載圖片"</p>
+              <p>然後從相簿透過 WhatsApp 分享</p>
             </div>
             
             <button onClick={() => setShowImageModal(false)} className={styles.doneButton}>
-              Done
+              完成
             </button>
           </div>
         </div>

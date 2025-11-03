@@ -11,7 +11,7 @@ export default function LeaderApp() {
   const [syncing, setSyncing] = useState(false);
 
   const handleSyncData = async () => {
-    if (!confirm('Sync latest data from Google Sheet? This may take a few seconds.')) {
+    if (!confirm('從 Google Sheet 同步最新資料？這可能需要幾秒鐘。')) {
       return;
     }
 
@@ -26,13 +26,13 @@ export default function LeaderApp() {
       const data = await response.json();
       
       if (data.success) {
-        alert(`✅ Data synced!\n\nStaff: ${data.stats.staffCount}\nAvailability: ${data.stats.availabilityCount}`);
+        alert(`✅ 資料已同步！\n\n員工: ${data.stats.staffCount}\n可用時間記錄: ${data.stats.availabilityCount}`);
         window.location.reload(); // Refresh to show new data
       } else {
-        alert('Failed to sync data: ' + (data.message || 'Unknown error'));
+        alert('同步資料失敗: ' + (data.message || '未知錯誤'));
       }
     } catch (error: any) {
-      alert('Error syncing data: ' + error.message);
+      alert('同步資料錯誤: ' + error.message);
     } finally {
       setSyncing(false);
     }
@@ -42,12 +42,12 @@ export default function LeaderApp() {
     <div className={styles.container}>
       <div className={styles.header}>
         <div className={styles.headerTop}>
-          <h1 className={styles.title}>Roster Planning</h1>
+          <h1 className={styles.title}>更表規劃</h1>
           <button 
             onClick={handleSyncData}
             disabled={syncing}
             className={styles.syncButton}
-            title="Sync latest data from Google Sheet"
+            title="從 Google Sheet 同步最新資料"
           >
             {syncing ? '⏳' : '🔄'}
           </button>
@@ -56,7 +56,7 @@ export default function LeaderApp() {
           onClick={() => setActiveView(activeView === 'calendar' ? 'search' : 'calendar')}
           className={styles.switchButton}
         >
-          {activeView === 'calendar' ? '🔍 Check Staff' : '📅 Plan Roster'}
+          {activeView === 'calendar' ? '🔍 查看員工' : '📅 規劃更表'}
         </button>
       </div>
 

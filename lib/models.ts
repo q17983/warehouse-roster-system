@@ -193,7 +193,7 @@ export const AkeModel = {
 
   getAll: async (): Promise<AkeRequirement[]> => {
     const result = await pool.query(
-      'SELECT * FROM ake_requirements ORDER BY date DESC'
+      'SELECT * FROM ake_requirements ORDER BY date ASC'
     );
     return result.rows;
   },
