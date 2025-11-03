@@ -86,10 +86,33 @@ export default function StaffSearchView() {
 
     setSaving(true);
     try {
-      const canvas = await html2canvas(scheduleRef.current, {
+      // Clone the schedule card and remove elements we don't want in the photo
+      const clone = scheduleRef.current.cloneNode(true) as HTMLElement;
+      
+      // Remove available dates section
+      const availableSection = clone.querySelector('.availableSection');
+      if (availableSection) {
+        availableSection.remove();
+      }
+      
+      // Remove phone number footer
+      const phoneFooter = clone.querySelector('.cardFooter');
+      if (phoneFooter) {
+        phoneFooter.remove();
+      }
+      
+      // Temporarily add clone to DOM for html2canvas
+      clone.style.position = 'absolute';
+      clone.style.left = '-9999px';
+      document.body.appendChild(clone);
+      
+      const canvas = await html2canvas(clone, {
         backgroundColor: '#ffffff',
-        scale: 2, // Higher quality for sharp image
+        scale: 2,
       });
+
+      // Remove clone
+      document.body.removeChild(clone);
 
       // Convert to data URL for display
       const dataUrl = canvas.toDataURL('image/png');
@@ -230,8 +253,8 @@ export default function StaffSearchView() {
                   )}
                 </div>
 
-                {/* Available Dates - Only show in UI, not in photo */}
-                <div className={`${styles.scheduleGroup} ${styles.availableSection}`}>
+                {/* Available Dates - Show on web, hidden in photo */}
+                <div className={`${styles.scheduleGroup} availableSection`}>
                   <h3 className={styles.groupTitle}>
                     ✅ Available ({availableThisWeek.length})
                   </h3>
@@ -248,9 +271,9 @@ export default function StaffSearchView() {
                   )}
                 </div>
 
-                {/* Footer with Contact Info */}
+                {/* Footer with Contact Info - Show on web, hidden in photo */}
                 {schedule.phone && (
-                  <div className={styles.cardFooter}>
+                  <div className={`${styles.cardFooter} cardFooter`}>
                     📱 {schedule.phone}
                   </div>
                 )}

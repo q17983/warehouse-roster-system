@@ -293,10 +293,7 @@
   font-size: 0.85rem;
 }
 
-/* Hide available section when capturing screenshot */
-.availableSection {
-  display: none;
-}
+/* Available section is visible on web, hidden when captured (via JS clone removal) */
 
 /* Image Modal for iPhone Save */
 .imageModal {
