@@ -24,7 +24,8 @@ function getNextWeekStart(): Date {
 }
 
 export default function StaffSearchView() {
-  const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [allStaff, setAllStaff] = useState<Staff[]>([]);
+  const [filteredStaffList, setFilteredStaffList] = useState<Staff[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStaffId, setSelectedStaffId] = useState<number | null>(null);
   const [schedule, setSchedule] = useState<StaffSchedule | null>(null);
@@ -34,21 +35,68 @@ export default function StaffSearchView() {
   const scheduleRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    loadStaffList();
+    loadAllStaff();
   }, []);
 
-  const loadStaffList = async () => {
+  // Filter staff by current week when week changes
+  useEffect(() => {
+    filterStaffByWeek();
+  }, [currentWeek, allStaff]);
+
+  const loadAllStaff = async () => {
     try {
       const response = await fetch('/api/staff');
       const data = await response.json();
       
       if (data.success) {
-        setStaffList(data.staff);
+        setAllStaff(data.staff);
       }
     } catch (error) {
       console.error('Error loading staff:', error);
-      alert('Failed to load staff list');
+      alert('載入員工名單失敗');
     }
+  };
+
+  const filterStaffByWeek = async () => {
+    if (allStaff.length === 0) return;
+
+    const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+    const weekDays = eachDayOfInterval({
+      start: weekStart,
+      end: addDays(weekStart, 6),
+    });
+    const weekDatesStr = weekDays.map(d => format(d, 'yyyy-MM-dd'));
+
+    // Get staff who have availability OR scheduled dates in this week
+    const staffInThisWeek = new Set<number>();
+
+    // Check availability for each date in the week
+    for (const dateStr of weekDatesStr) {
+      try {
+        const response = await fetch(`/api/availability/${dateStr}`);
+        const data = await response.json();
+        if (data.success) {
+          data.staff.forEach((s: Staff) => staffInThisWeek.add(s.id));
+        }
+      } catch (error) {
+        // Ignore errors
+      }
+
+      // Also check roster
+      try {
+        const response = await fetch(`/api/roster/${dateStr}`);
+        const data = await response.json();
+        if (data.success) {
+          data.roster.forEach((s: Staff) => staffInThisWeek.add(s.id));
+        }
+      } catch (error) {
+        // Ignore errors
+      }
+    }
+
+    // Filter staff list to only those in this week
+    const filtered = allStaff.filter(staff => staffInThisWeek.has(staff.id));
+    setFilteredStaffList(filtered);
   };
 
   const handleStaffSelect = async (staffId: number) => {
@@ -155,17 +203,53 @@ export default function StaffSearchView() {
     weekDatesStr.includes(date)
   ) || [];
 
-  // Filter staff list by search
-  const filteredStaff = staffList.filter(staff =>
+  const nextWeek = () => {
+    setCurrentWeek(addWeeks(currentWeek, 1));
+    setSelectedStaffId(null);
+    setSchedule(null);
+  };
+
+  const prevWeek = () => {
+    setCurrentWeek(addWeeks(currentWeek, -1));
+    setSelectedStaffId(null);
+    setSchedule(null);
+  };
+
+  const goToNextWeek = () => {
+    setCurrentWeek(getNextWeekStart());
+    setSelectedStaffId(null);
+    setSchedule(null);
+  };
+
+  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+
+  // Filter by search term
+  const displayedStaff = filteredStaffList.filter(staff =>
     staff.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     staff.phone?.includes(searchTerm)
   );
 
   return (
     <div className={styles.container}>
+      {/* Week Selection - Same as Roster Planning */}
+      <div className={styles.weekNav}>
+        <button onClick={prevWeek} className={styles.navButton}>←</button>
+        <div className={styles.weekInfo}>
+          <div className={styles.weekRange}>
+            {format(weekStart, 'MMM d')} - {format(addDays(weekStart, 6), 'MMM d, yyyy')}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {!isSameDay(weekStart, getNextWeekStart()) && (
+            <button onClick={goToNextWeek} className={styles.jumpButton}>📍</button>
+          )}
+          <button onClick={nextWeek} className={styles.navButton}>→</button>
+        </div>
+      </div>
+
       {/* Staff Selection Section */}
       <div className={styles.searchSection}>
-        <h2 className={styles.sectionTitle}>選擇員工</h2>
+        <h2 className={styles.sectionTitle}>選擇員工 ({filteredStaffList.length})</h2>
         
         {/* Search Box */}
         <input
@@ -196,9 +280,11 @@ export default function StaffSearchView() {
           )}
         </div>
         
-        <div className={styles.staffCount}>
-          {filteredStaff.length} / {staffList.length} 位員工
-        </div>
+        {searchTerm && (
+          <div className={styles.staffCount}>
+            顯示 {displayedStaff.length} / {filteredStaffList.length} 位員工
+          </div>
+        )}
       </div>
 
       {/* Schedule Section - Week-by-Week View */}
@@ -208,23 +294,6 @@ export default function StaffSearchView() {
             <div className={styles.loading}>載入時間表中...</div>
           ) : schedule ? (
             <>
-              {/* Week Navigation */}
-              <div className={styles.weekNav}>
-                <button onClick={prevWeek} className={styles.navButton}>
-                  ←
-                </button>
-                <div className={styles.weekInfo}>
-                  <div className={styles.weekRange}>
-                    {format(weekStart, 'MMM d')} - {format(addDays(weekStart, 6), 'MMM d, yyyy')}
-                  </div>
-                  <button onClick={goToNextWeek} className={styles.todayButton}>
-                    📅 下週
-                  </button>
-                </div>
-                <button onClick={nextWeek} className={styles.navButton}>
-                  →
-                </button>
-              </div>
 
               {/* Schedule Card - Ready for Screenshot */}
               <div ref={scheduleRef} className={styles.scheduleCard}>

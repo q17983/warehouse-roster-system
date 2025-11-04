@@ -38558,6 +38558,292 @@ ok perfect,  i want to add a data left hand side next to 已分配, is to show t
 
 _**Agent (model claude-4.5-sonnet-thinking, mode Agent)**_
 
+<think><details><summary>Thought Process</summary>
+The user wants to add another indicator next to "已分配" (assigned) showing how many staff APPLIED/ARE AVAILABLE for that day. This would help the leader know the pool of available staff when planning.
+
+So for each day card, instead of just showing:
+"3 已分配" (3 assigned)
+
+It would show:
+"8 已報更 / 3 已分配" (8 applied / 3 assigned)
+
+Or similar. This makes sense - the leader can see:
+- How many staff are available (applied/reported availability)
+- How many are actually assigned
+- At a glance, know if they have enough staff to choose from
+
+Let me implement this.</details></think>
+
+---
+
+Excellent idea! That's very useful - showing how many staff applied (available) vs how many are assigned. Let me add that:
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/app/leader/components/CalendarView.tsx</summary>
+
+**Chunk 1**
+Lines added: 5, lines removed: 1
+
+```diff
+@@ -45,8 +45,12 @@
+    });
+  
+-   // Load roster and AKE data for current week
++   // Track available staff count per date
++   const [availableCount, setAvailableCount] = useState&lt;{ [date: string]: number }&gt;({});
++ 
++   // Load roster, AKE data, and available counts for current week
+    useEffect(() =&gt; {
+      loadRosterForWeek();
+      loadAkeForWeek();
++     loadAvailableCountsForWeek();
+    }, [currentWeek]);
+  
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/app/leader/components/CalendarView.tsx</summary>
+
+**Chunk 1**
+Lines added: 17, lines removed: undefined
+
+```diff
+@@ -93,4 +93,21 @@
+      setAkeData(akeDataMap);
+    };
++ 
++   const loadAvailableCountsForWeek = async () =&gt; {
++     const countsMap: { [date: string]: number } = {};
++     for (const day of weekDays) {
++       const dateStr = format(day, &#39;yyyy-MM-dd&#39;);
++       try {
++         const response = await fetch(&#96;/api/availability/${dateStr}&#96;);
++         const data = await response.json();
++         if (data.success) {
++           countsMap[dateStr] = data.staff.length;
++         }
++       } catch (error) {
++         // Ignore errors
++       }
++     }
++     setAvailableCount(countsMap);
++   };
+  
+    const handleAkeClick = async (date: string) =&gt; {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/app/leader/components/CalendarView.tsx</summary>
+
+**Chunk 1**
+Lines added: 5, lines removed: 1
+
+```diff
+@@ -279,5 +279,9 @@
+                    &lt;div className={styles.dayDate}&gt;{format(day, &#39;MMM d&#39;)}&lt;/div&gt;
+                  &lt;/div&gt;
+-                 &lt;div className={styles.staffCount}&gt;{assignedStaff.length} 已分配&lt;/div&gt;
++                 &lt;div className={styles.staffCounts}&gt;
++                   &lt;span className={styles.availableCount}&gt;{availableCount[dateStr] || 0} 已報更&lt;/span&gt;
++                   &lt;span className={styles.separator}&gt;|&lt;/span&gt;
++                   &lt;span className={styles.assignedCount}&gt;{assignedStaff.length} 已分配&lt;/span&gt;
++                 &lt;/div&gt;
+                &lt;/div&gt;
+  
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="read" data-tool-name="read_file">
+<details><summary>Tool use: **read_file** • Read file: /Users/sai/Warehouse management/app/leader/components/CalendarView.module.css</summary>
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/app/leader/components/CalendarView.module.css</summary>
+
+**Chunk 1**
+Lines added: 27, lines removed: undefined
+
+```diff
+@@ -121,4 +121,31 @@
+  }
+  
++ .staffCounts {
++   display: flex;
++   align-items: center;
++   gap: 0.5rem;
++   font-size: 0.8rem;
++   font-weight: 600;
++ }
++ 
++ .availableCount {
++   color: #28a745;
++   background: #e8f5e9;
++   padding: 0.25rem 0.5rem;
++   border-radius: 6px;
++ }
++ 
++ .separator {
++   color: #ccc;
++ }
++ 
++ .assignedCount {
++   color: #667eea;
++   background: #f0f4ff;
++   padding: 0.25rem 0.5rem;
++   border-radius: 6px;
++ }
++ 
++ /* Legacy support (if used elsewhere) */
+  .staffCount {
+    font-size: 0.8rem;
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Add available staff count (已報更) next to assigned count on each day" && git push</summary>
+
+```bash
+cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Add available staff count (已報更) next to assigned count on each day" && git push
+```
+
+```
+[main b73a756] Add available staff count (已報更) next to assigned count on each day
+ Committer: Your Name &lt;sai@SAIdeMacBook-Air.local&gt;
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name &quot;Your Name&quot;
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 3 files changed, 651 insertions(+), 17 deletions(-)
+To https://github.com/q17983/warehouse-roster-system.git
+   6888c47..b73a756  main -&gt; main
+
+```
+</details>
+</tool-use>
+
+---
+
+<think><details><summary>Thought Process</summary>
+Great! I've successfully added the available staff count display. Now each day will show:
+- Green badge: "8 已報更" (8 staff reported/available)
+- Blue badge: "3 已分配" (3 staff assigned)
+
+This gives the leader a clear view of:
+1. How many staff are available to choose from
+2. How many have been assigned
+3. Quick understanding of staffing situation
+
+The user seems happy with the progress. Let me make sure everything is documented and ready.</details></think>
+
+---
+
+Perfect! I've added the "已報更" (reported/available) count:
+
+## ✅ What's Added:
+
+### Each Day Now Shows:
+
+```
+Mon
+Nov 4
+[8 已報更] | [3 已分配]
+  ↑              ↑
+Green         Blue
+(available)  (assigned)
+```
+
+**Visual Design:**
+- **Green badge:** "8 已報更" - How many staff applied/available
+- **Separator:** |
+- **Blue badge:** "3 已分配" - How many staff assigned
+
+---
+
+## 💡 Benefits for Leader:
+
+**Quick Planning Overview:**
+- See "8 已報更" → Know 8 staff are available to choose from
+- See "3 已分配" → Know 3 staff already assigned
+- At a glance: "I have 8 options, assigned 3, can add 5 more"
+
+**Better Decision Making:**
+- "10 已報更 | 0 已分配" → Good! Plenty of staff to assign
+- "2 已報更 | 2 已分配" → All available staff assigned
+- "5 已報更 | 10 已分配" → Over-assigned (some staff not available)
+
+**Planning Insight:**
+- Helps match AKE requirements with available staff
+- Know when you have enough or too few applicants
+- Visual feedback on staffing levels
+
+---
+
+## 🎯 After Deployment (~2 minutes):
+
+**Leader will see:**
+
+```
+週一
+Nov 4
+8 已報更 | 3 已分配
+MS: 5  ET: 3  PER: 2  Total: 10
+[ACAC] [JT] [KC]
+[分配員工]
+```
+
+Clear, informative, and helpful for planning! ✅
+
+**Railway is deploying now. This will make planning much easier for your leader!** 🎊
+
+---
+
+_**User (2025-11-04 06:45Z)**_
+
+good! for the 查看員工 i want to add the select week above the staff, just like the roster planning, i can select the week Nov 10 - Nov 16, 2025 or Nov 3 - Nov 9, 2025 etc,,, as each week may have different staff applied, if you only showing all the week, there maybe more than 100 staff name pop up, what do you think
+
+---
+
+_**Agent (model claude-4.5-sonnet-thinking, mode Agent)**_
+
 
 
 ---
