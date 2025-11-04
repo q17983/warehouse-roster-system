@@ -177,14 +177,20 @@ export default function StaffSearchView() {
 
   const nextWeek = () => {
     setCurrentWeek(addWeeks(currentWeek, 1));
+    setSelectedStaffId(null);
+    setSchedule(null);
   };
 
   const prevWeek = () => {
     setCurrentWeek(addWeeks(currentWeek, -1));
+    setSelectedStaffId(null);
+    setSchedule(null);
   };
 
   const goToNextWeek = () => {
     setCurrentWeek(getNextWeekStart());
+    setSelectedStaffId(null);
+    setSchedule(null);
   };
 
   // Filter dates for current week
@@ -202,26 +208,6 @@ export default function StaffSearchView() {
   const availableThisWeek = schedule?.availableDates.filter(date => 
     weekDatesStr.includes(date)
   ) || [];
-
-  const nextWeek = () => {
-    setCurrentWeek(addWeeks(currentWeek, 1));
-    setSelectedStaffId(null);
-    setSchedule(null);
-  };
-
-  const prevWeek = () => {
-    setCurrentWeek(addWeeks(currentWeek, -1));
-    setSelectedStaffId(null);
-    setSchedule(null);
-  };
-
-  const goToNextWeek = () => {
-    setCurrentWeek(getNextWeekStart());
-    setSelectedStaffId(null);
-    setSchedule(null);
-  };
-
-  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
 
   // Filter by search term
   const displayedStaff = filteredStaffList.filter(staff =>
