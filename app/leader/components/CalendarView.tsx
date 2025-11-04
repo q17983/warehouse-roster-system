@@ -44,10 +44,14 @@ export default function CalendarView() {
     end: addDays(weekStart, 6), // Monday to Sunday = 7 days
   });
 
-  // Load roster and AKE data for current week
+  // Track available staff count per date
+  const [availableCount, setAvailableCount] = useState<{ [date: string]: number }>({});
+
+  // Load roster, AKE data, and available counts for current week
   useEffect(() => {
     loadRosterForWeek();
     loadAkeForWeek();
+    loadAvailableCountsForWeek();
   }, [currentWeek]);
 
   const loadRosterForWeek = async () => {
@@ -87,6 +91,23 @@ export default function CalendarView() {
       }
     }
     setAkeData(akeDataMap);
+  };
+
+  const loadAvailableCountsForWeek = async () => {
+    const countsMap: { [date: string]: number } = {};
+    for (const day of weekDays) {
+      const dateStr = format(day, 'yyyy-MM-dd');
+      try {
+        const response = await fetch(`/api/availability/${dateStr}`);
+        const data = await response.json();
+        if (data.success) {
+          countsMap[dateStr] = data.staff.length;
+        }
+      } catch (error) {
+        // Ignore errors
+      }
+    }
+    setAvailableCount(countsMap);
   };
 
   const handleAkeClick = async (date: string) => {
@@ -257,7 +278,11 @@ export default function CalendarView() {
                   <div className={styles.dayName}>{format(day, 'EEE', { locale: undefined })}</div>
                   <div className={styles.dayDate}>{format(day, 'MMM d')}</div>
                 </div>
-                <div className={styles.staffCount}>{assignedStaff.length} 已分配</div>
+                <div className={styles.staffCounts}>
+                  <span className={styles.availableCount}>{availableCount[dateStr] || 0} 已報更</span>
+                  <span className={styles.separator}>|</span>
+                  <span className={styles.assignedCount}>{assignedStaff.length} 已分配</span>
+                </div>
               </div>
 
               {/* Assigned Staff - Show ALL, scrollable if needed */}

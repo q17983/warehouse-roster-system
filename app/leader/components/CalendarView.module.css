@@ -120,6 +120,33 @@
   color: #333;
 }
 
+.staffCounts {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.availableCount {
+  color: #28a745;
+  background: #e8f5e9;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+}
+
+.separator {
+  color: #ccc;
+}
+
+.assignedCount {
+  color: #667eea;
+  background: #f0f4ff;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+}
+
+/* Legacy support (if used elsewhere) */
 .staffCount {
   font-size: 0.8rem;
   color: #667eea;
