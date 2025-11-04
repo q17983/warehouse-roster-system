@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { format, parseISO, startOfWeek, addWeeks, addDays, eachDayOfInterval } from 'date-fns';
+import { format, parseISO, startOfWeek, addWeeks, addDays, eachDayOfInterval, isSameDay } from 'date-fns';
 import html2canvas from 'html2canvas';
 import styles from './StaffSearchView.module.css';
 
