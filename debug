@@ -1,0 +1,10 @@
+<script>start("/Users/sai/Warehouse management/app/api/debug/");</script>
+<script>onHasParentDirectory();</script>
+<script>addRow("connection","connection",1,64,"64 B",1762084426,"2025/11/2 晚上7:53:46");</script>
+<script>addRow("db","db",1,64,"64 B",1762084424,"2025/11/2 晚上7:53:44");</script>
+<script>addRow("db-state","db-state",1,64,"64 B",1762084432,"2025/11/2 晚上7:53:52");</script>
+<script>addRow("filesystem","filesystem",1,64,"64 B",1762084429,"2025/11/2 晚上7:53:49");</script>
+<script>addRow("force-checkpoint","force-checkpoint",1,64,"64 B",1762084428,"2025/11/2 晚上7:53:48");</script>
+<script>addRow("next-week","next-week",1,96,"96 B",1762086831,"2025/11/2 晚上8:33:51");</script>
+<script>addRow("reset-db","reset-db",1,64,"64 B",1762084430,"2025/11/2 晚上7:53:50");</script>
+<script>addRow("simple-test","simple-test",1,64,"64 B",1762084431,"2025/11/2 晚上7:53:51");</script>
