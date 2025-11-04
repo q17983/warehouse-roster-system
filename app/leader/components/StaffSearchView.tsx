@@ -248,10 +248,12 @@ export default function StaffSearchView() {
 
         {/* Staff Grid - Better Layout for 20+ staff */}
         <div className={styles.staffGrid}>
-          {filteredStaff.length === 0 ? (
+          {filteredStaffList.length === 0 ? (
+            <div className={styles.noResults}>本週沒有員工報更或被分配</div>
+          ) : displayedStaff.length === 0 ? (
             <div className={styles.noResults}>找不到員工</div>
           ) : (
-            filteredStaff.map((staff) => (
+            displayedStaff.map((staff) => (
               <button
                 key={staff.id}
                 onClick={() => handleStaffSelect(staff.id)}
