@@ -250,6 +250,23 @@ export default function StaffSearchView() {
     return data && (data.available.size > 0 || data.scheduled.size > 0);
   });
 
+  // Calculate counts for each date
+  const dateCounts = weekDays.map(day => {
+    const dateStr = format(day, 'yyyy-MM-dd');
+    let availableCount = 0;
+    let scheduledCount = 0;
+    
+    staffInWeek.forEach(staff => {
+      const data = staffWithData[staff.id];
+      if (data) {
+        if (data.available.has(dateStr)) availableCount++;
+        if (data.scheduled.has(dateStr)) scheduledCount++;
+      }
+    });
+    
+    return { date: dateStr, available: availableCount, scheduled: scheduledCount };
+  });
+
   return (
     <div className={styles.container}>
       {/* Week Navigation */}
@@ -281,17 +298,28 @@ export default function StaffSearchView() {
               <thead>
                 <tr>
                   <th className={styles.nameHeader}>員工</th>
-                  {weekDays.map((day) => (
-                    <th key={format(day, 'yyyy-MM-dd')} className={styles.dateHeader}>
-                      <div className={styles.dayName}>{format(day, 'EEE')}</div>
-                      <div className={styles.dayDate}>{format(day, 'MMM d')}</div>
-                    </th>
-                  ))}
+                  {weekDays.map((day, index) => {
+                    const counts = dateCounts[index];
+                    return (
+                      <th key={format(day, 'yyyy-MM-dd')} className={styles.dateHeader}>
+                        <div className={styles.dayName}>{format(day, 'EEE')}</div>
+                        <div className={styles.dayDate}>{format(day, 'MMM d')}</div>
+                        <div className={styles.dayCounts}>
+                          <span className={styles.availableCountSmall}>{counts.available}</span>
+                          <span className={styles.separator}>/</span>
+                          <span className={styles.scheduledCountSmall}>{counts.scheduled}</span>
+                        </div>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
                 {staffInWeek.map((staff) => {
                   const data = staffWithData[staff.id];
+                  const staffScheduledCount = data?.scheduled.size || 0;
+                  const staffAvailableCount = data?.available.size || 0;
+                  
                   return (
                     <tr key={staff.id}>
                       <td className={styles.nameCell}>
@@ -299,7 +327,10 @@ export default function StaffSearchView() {
                           onClick={() => handleStaffClick(staff.id)}
                           className={styles.staffNameButton}
                         >
-                          {staff.name}
+                          <span className={styles.staffName}>{staff.name}</span>
+                          <span className={styles.staffDayCounts}>
+                            ({staffScheduledCount}/{staffAvailableCount})
+                          </span>
                         </button>
                       </td>
                       {weekDays.map((day) => {

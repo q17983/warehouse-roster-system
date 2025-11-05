@@ -132,20 +132,39 @@
 
 .dateHeader {
   text-align: center;
-  padding: 0.75rem 0.5rem;
+  padding: 0.625rem 0.4rem;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   min-width: 70px;
 }
 
 .dayName {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   opacity: 0.9;
 }
 
 .dayDate {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  margin-top: 0.15rem;
+}
+
+.dayCounts {
+  font-size: 0.7rem;
   margin-top: 0.25rem;
+  opacity: 0.9;
+  font-weight: 500;
+}
+
+.availableCountSmall {
+  color: #a8e6cf;
+}
+
+.separator {
+  margin: 0 0.15rem;
+}
+
+.scheduledCountSmall {
+  color: #ffd3e0;
 }
 
 .weekTable tbody tr {
@@ -176,24 +195,38 @@
 .staffNameButton {
   width: 100%;
   text-align: left;
-  padding: 1rem;
+  padding: 0.7rem 0.75rem;
   background: transparent;
   border: none;
   color: #667eea;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   cursor: pointer;
   transition: color 0.2s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .staffNameButton:active {
   color: #5568d3;
 }
 
+.staffName {
+  flex: 1;
+}
+
+.staffDayCounts {
+  font-size: 0.75rem;
+  color: #999;
+  font-weight: 500;
+}
+
 .statusCell {
   text-align: center;
-  padding: 0.75rem 0.5rem;
-  min-width: 70px;
+  padding: 0.6rem 0.4rem;
+  min-width: 65px;
   transition: background 0.2s;
 }
 
@@ -213,13 +246,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   background: #667eea;
   color: white;
   border-radius: 50%;
   font-weight: 700;
-  font-size: 1.1rem;
+  font-size: 1rem;
   transition: all 0.2s;
 }
 
@@ -231,13 +264,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border: 2px solid #28a745;
   color: #28a745;
   border-radius: 50%;
   font-weight: 700;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   transition: all 0.2s;
 }
 
