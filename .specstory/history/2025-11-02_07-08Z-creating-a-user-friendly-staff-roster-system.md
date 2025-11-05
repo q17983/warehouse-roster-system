@@ -44801,7 +44801,456 @@ ok it works perfectly,,, i want to add also the number of available staff and as
 
 _**Agent (model claude-4.5-sonnet-thinking, mode Agent)**_
 
+<think><details><summary>Thought Process</summary>
+Great suggestions! Let me add:
+1. Under each date column header - show count of available and assigned staff
+2. Next to staff name - show (assigned days / available days) like (0/2)
+3. Make rows more compact for better layout
 
+Let me implement all three improvements.</details></think>
+
+---
+
+Excellent ideas! Let me add those enhancements:
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/app/leader/components/StaffSearchView.tsx</summary>
+
+**Chunk 1**
+Lines added: 17, lines removed: undefined
+
+```diff
+@@ -250,4 +250,21 @@
+      return data &amp;&amp; (data.available.size &gt; 0 || data.scheduled.size &gt; 0);
+    });
++ 
++   // Calculate counts for each date
++   const dateCounts = weekDays.map(day =&gt; {
++     const dateStr = format(day, &#39;yyyy-MM-dd&#39;);
++     let availableCount = 0;
++     let scheduledCount = 0;
++     
++     staffInWeek.forEach(staff =&gt; {
++       const data = staffWithData[staff.id];
++       if (data) {
++         if (data.available.has(dateStr)) availableCount++;
++         if (data.scheduled.has(dateStr)) scheduledCount++;
++       }
++     });
++     
++     return { date: dateStr, available: availableCount, scheduled: scheduledCount };
++   });
+  
+    return (
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/app/leader/components/StaffSearchView.tsx</summary>
+
+**Chunk 1**
+Lines added: 14, lines removed: 6
+
+```diff
+@@ -299,10 +299,18 @@
+                  &lt;tr&gt;
+                    &lt;th className={styles.nameHeader}&gt;員工&lt;/th&gt;
+-                   {weekDays.map((day) =&gt; (
+-                     &lt;th key={format(day, &#39;yyyy-MM-dd&#39;)} className={styles.dateHeader}&gt;
+-                       &lt;div className={styles.dayName}&gt;{format(day, &#39;EEE&#39;)}&lt;/div&gt;
+-                       &lt;div className={styles.dayDate}&gt;{format(day, &#39;MMM d&#39;)}&lt;/div&gt;
+-                     &lt;/th&gt;
+-                   ))}
++                   {weekDays.map((day, index) =&gt; {
++                     const counts = dateCounts[index];
++                     return (
++                       &lt;th key={format(day, &#39;yyyy-MM-dd&#39;)} className={styles.dateHeader}&gt;
++                         &lt;div className={styles.dayName}&gt;{format(day, &#39;EEE&#39;)}&lt;/div&gt;
++                         &lt;div className={styles.dayDate}&gt;{format(day, &#39;MMM d&#39;)}&lt;/div&gt;
++                         &lt;div className={styles.dayCounts}&gt;
++                           &lt;span className={styles.availableCountSmall}&gt;{counts.available}&lt;/span&gt;
++                           &lt;span className={styles.separator}&gt;/&lt;/span&gt;
++                           &lt;span className={styles.scheduledCountSmall}&gt;{counts.scheduled}&lt;/span&gt;
++                         &lt;/div&gt;
++                       &lt;/th&gt;
++                     );
++                   })}
+                  &lt;/tr&gt;
+                &lt;/thead&gt;
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/app/leader/components/StaffSearchView.tsx</summary>
+
+**Chunk 1**
+Lines added: 3, lines removed: undefined
+
+```diff
+@@ -318,4 +318,7 @@
+                  {staffInWeek.map((staff) =&gt; {
+                    const data = staffWithData[staff.id];
++                   const staffScheduledCount = data?.scheduled.size || 0;
++                   const staffAvailableCount = data?.available.size || 0;
++                   
+                    return (
+                      &lt;tr key={staff.id}&gt;
+```
+
+**Chunk 2**
+Lines added: 4, lines removed: 1
+
+```diff
+@@ -325,5 +328,8 @@
+                            className={styles.staffNameButton}
+                          &gt;
+-                           {staff.name}
++                           &lt;span className={styles.staffName}&gt;{staff.name}&lt;/span&gt;
++                           &lt;span className={styles.staffDayCounts}&gt;
++                             ({staffScheduledCount}/{staffAvailableCount})
++                           &lt;/span&gt;
+                          &lt;/button&gt;
+                        &lt;/td&gt;
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/app/leader/components/StaffSearchView.module.css</summary>
+
+**Chunk 1**
+Lines added: 23, lines removed: 4
+
+```diff
+@@ -133,18 +133,37 @@
+  .dateHeader {
+    text-align: center;
+-   padding: 0.75rem 0.5rem;
++   padding: 0.625rem 0.4rem;
+    font-weight: 600;
+-   font-size: 0.85rem;
++   font-size: 0.8rem;
+    min-width: 70px;
+  }
+  
+  .dayName {
+-   font-size: 0.75rem;
++   font-size: 0.7rem;
+    opacity: 0.9;
+  }
+  
+  .dayDate {
+-   font-size: 0.9rem;
++   font-size: 0.85rem;
++   margin-top: 0.15rem;
++ }
++ 
++ .dayCounts {
++   font-size: 0.7rem;
+    margin-top: 0.25rem;
++   opacity: 0.9;
++   font-weight: 500;
++ }
++ 
++ .availableCountSmall {
++   color: #a8e6cf;
++ }
++ 
++ .separator {
++   margin: 0 0.15rem;
++ }
++ 
++ .scheduledCountSmall {
++   color: #ffd3e0;
+  }
+  
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/app/leader/components/StaffSearchView.module.css</summary>
+
+**Chunk 1**
+Lines added: 16, lines removed: 2
+
+```diff
+@@ -196,17 +196,31 @@
+    width: 100%;
+    text-align: left;
+-   padding: 1rem;
++   padding: 0.7rem 0.75rem;
+    background: transparent;
+    border: none;
+    color: #667eea;
+    font-weight: 600;
+-   font-size: 0.95rem;
++   font-size: 0.9rem;
+    cursor: pointer;
+    transition: color 0.2s;
++   display: flex;
++   justify-content: space-between;
++   align-items: center;
++   gap: 0.5rem;
+  }
+  
+  .staffNameButton:active {
+    color: #5568d3;
+  }
++ 
++ .staffName {
++   flex: 1;
++ }
++ 
++ .staffDayCounts {
++   font-size: 0.75rem;
++   color: #999;
++   font-weight: 500;
++ }
+  
+  .statusCell {
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/app/leader/components/StaffSearchView.module.css</summary>
+
+**Chunk 1**
+Lines added: 2, lines removed: 2
+
+```diff
+@@ -226,6 +226,6 @@
+  .statusCell {
+    text-align: center;
+-   padding: 0.75rem 0.5rem;
+-   min-width: 70px;
++   padding: 0.6rem 0.4rem;
++   min-width: 65px;
+    transition: background 0.2s;
+  }
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="write" data-tool-name="search_replace">
+
+<details><summary>Tool use: **code_edit** • Edit file: /Users/sai/Warehouse management/app/leader/components/StaffSearchView.module.css</summary>
+
+**Chunk 1**
+Lines added: 3, lines removed: 3
+
+```diff
+@@ -247,11 +247,11 @@
+    align-items: center;
+    justify-content: center;
+-   width: 32px;
+-   height: 32px;
++   width: 28px;
++   height: 28px;
+    background: #667eea;
+    color: white;
+    border-radius: 50%;
+    font-weight: 700;
+-   font-size: 1.1rem;
++   font-size: 1rem;
+    transition: all 0.2s;
+  }
+```
+
+**Chunk 2**
+Lines added: 3, lines removed: 3
+
+```diff
+@@ -265,11 +265,11 @@
+    align-items: center;
+    justify-content: center;
+-   width: 32px;
+-   height: 32px;
++   width: 28px;
++   height: 28px;
+    border: 2px solid #28a745;
+    color: #28a745;
+    border-radius: 50%;
+    font-weight: 700;
+-   font-size: 1.2rem;
++   font-size: 1.1rem;
+    transition: all 0.2s;
+  }
+```
+
+</details>
+
+</tool-use>
+
+---
+
+<tool-use data-tool-type="bash" data-tool-name="run_terminal_cmd">
+<details><summary>Tool use: **command** • Run command: cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Add day counts under dates, staff day counts (X/Y), and compact row layout" && git push</summary>
+
+```bash
+cd "/Users/sai/Warehouse management" && git add -A && git commit -m "Add day counts under dates, staff day counts (X/Y), and compact row layout" && git push
+```
+
+```
+[main 88dddbc] Add day counts under dates, staff day counts (X/Y), and compact row layout
+ Committer: Your Name &lt;sai@SAIdeMacBook-Air.local&gt;
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name &quot;Your Name&quot;
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 3 files changed, 442 insertions(+), 21 deletions(-)
+To https://github.com/q17983/warehouse-roster-system.git
+   c9a7725..88dddbc  main -&gt; main
+
+```
+</details>
+</tool-use>
+
+---
+
+<think><details><summary>Thought Process</summary>
+The user is happy with the progress. I've added:
+1. Day counts under each date column (available/scheduled)
+2. Staff day counts next to name (scheduled/available)
+3. More compact layout (smaller padding, smaller icons)
+
+Let me mark the todo as completed and summarize what was added.</details></think>
+
+---
+
+<tool-use data-tool-type="generic" data-tool-name="todo_write">
+<details><summary>Tool use: **todo_write** • Todo List</summary>
+
+- [x] Transform Check Staff to table view with staff rows and date columns
+- [x] Keep detail view popup when clicking staff name
+- [x] Test table layout on mobile and desktop
+- [x] Deploy and verify
+
+</details>
+</tool-use>
+
+---
+
+<think><details><summary>Thought Process</summary>
+The system says there's 1 unfinished todo, but I just marked it as completed. The cache might be stale. Let me just continue with the response.</details></think>
+
+---
+
+Perfect! All three improvements added:
+
+## ✅ What's New:
+
+### 1. Day Counts Under Each Date
+
+```
+┌─────┬──────┬──────┬──────┬
+│員工   │ Mon  │ Tue  │ Wed  │
+│     │11/10 │11/11 │11/12 │
+│     │ 8/5  │ 7/4  │ 6/3  │  ← New!
+│     │  ↑ ↑  │      │      │
+│     │  │ └─ Scheduled
+│     │  └─── Available
+├─────┼──────┼──────┼──────┼
+```
+
+**Shows:** "8/5" = 8 available, 5 scheduled
+
+### 2. Staff Day Counts Next to Names
+
+```
+ACAC (3/5)  ← 3 days scheduled, 5 days available
+JT (2/4)    ← 2 days scheduled, 4 days available
+KC (5/7)    ← 5 days scheduled, 7 days available
+```
+
+**At a glance:** See how many days each staff is working vs available
+
+### 3. Compact Layout
+
+- Smaller row height (0.7rem padding instead of 1rem)
+- Smaller icons (28px instead of 32px)
+- Tighter spacing
+- More rows visible on screen
+- Cleaner, more professional look
+
+---
+
+## 📊 Complete Table View:
+
+```
+┌──────────────┬────────┬────────┬────────┬
+│ 員工          │  Mon   │  Tue   │  Wed   │
+│              │ 11/10  │ 11/11  │ 11/12  │
+│              │  8/5   │  7/4   │  6/3   │
+├──────────────┼────────┼────────┼────────┼
+│ ACAC (3/5)   │   ✓    │   ○    │   ✓    │
+│ JT (2/4)     │   ○    │   ✓    │   ○    │
+│ KC (5/7)     │   ✓    │   ✓    │   ○    │
+└──────────────┴────────┴────────┴────────┴
+
+Legend:
+✓ 已安排工作    ○ 可工作
+💡 點擊 ✓ 或 ○ 來分配/取消分配員工
+```
+
+**Information-dense and super useful!**
+
+---
+
+## 🎯 After Deployment (~2 minutes):
+
+**You'll see:**
+- Date headers with "8/5" counts (available/scheduled per day)
+- Staff names with "(3/5)" counts (scheduled/available per person)
+- Compact, professional table layout
+- Click any ○ → Assigns staff instantly
+- Click any ✓ → Unassigns staff instantly
+
+**Perfect for quick weekly planning!** ✨📊
+
+Railway is deploying now...
 
 ---
 

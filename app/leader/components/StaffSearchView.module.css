@@ -195,7 +195,7 @@
 .staffNameButton {
   width: 100%;
   text-align: left;
-  padding: 0.7rem 0.75rem;
+  padding: 0.6rem 0.75rem;
   background: transparent;
   border: none;
   color: #667eea;
@@ -204,9 +204,9 @@
   cursor: pointer;
   transition: color 0.2s;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
 }
 
 .staffNameButton:active {
@@ -214,11 +214,11 @@
 }
 
 .staffName {
-  flex: 1;
+  font-size: 0.9rem;
 }
 
 .staffDayCounts {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: #999;
   font-weight: 500;
 }

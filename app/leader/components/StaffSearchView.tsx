@@ -61,49 +61,55 @@ export default function StaffSearchView() {
   };
 
   const handleCellClick = async (staffId: number, date: string, isScheduled: boolean, isAvailable: boolean) => {
-    // If scheduled, unassign (remove from roster)
-    // If available but not scheduled, assign (add to roster)
-    // If neither, do nothing (can't assign someone who's not available)
-    
     if (!isAvailable && !isScheduled) {
       alert('此員工在這天不可工作');
       return;
     }
 
-    try {
+    // Optimistic update - update UI immediately
+    setStaffWithData(prev => {
+      const updated = { ...prev };
       if (isScheduled) {
-        // Unassign - remove from roster
-        const response = await fetch(`/api/roster/${date}`);
-        const data = await response.json();
-        if (data.success) {
-          const remainingStaffIds = data.roster
+        updated[staffId].scheduled.delete(date);
+      } else {
+        updated[staffId].scheduled.add(date);
+      }
+      return updated;
+    });
+
+    try {
+      // Get current roster in background
+      const response = await fetch(`/api/roster/${date}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        let updatedStaffIds;
+        if (isScheduled) {
+          // Remove this staff
+          updatedStaffIds = data.roster
             .filter((s: any) => s.id !== staffId)
             .map((s: any) => s.id);
-          
-          await fetch(`/api/roster/${date}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ staffIds: remainingStaffIds }),
-          });
-        }
-      } else {
-        // Assign - add to roster
-        const response = await fetch(`/api/roster/${date}`);
-        const data = await response.json();
-        if (data.success) {
+        } else {
+          // Add this staff
           const existingStaffIds = data.roster.map((s: any) => s.id);
-          await fetch(`/api/roster/${date}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ staffIds: [...existingStaffIds, staffId] }),
-          });
+          updatedStaffIds = [...existingStaffIds, staffId];
         }
+        
+        // Save in background (don't wait)
+        fetch(`/api/roster/${date}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ staffIds: updatedStaffIds }),
+        }).catch(err => {
+          console.error('Background save failed:', err);
+          // Revert on error
+          loadWeekData();
+        });
       }
-      
-      // Reload week data to show changes
-      await loadWeekData();
     } catch (error) {
       console.error('Error updating assignment:', error);
+      // Revert optimistic update
+      await loadWeekData();
       alert('更新失敗');
     }
   };
