@@ -16,7 +16,7 @@ interface StaffSchedule extends Staff {
   scheduledDates: string[];
 }
 
-// Helper to get next week start (matches calendar)
+// Helper to get next week start
 function getNextWeekStart(): Date {
   const today = new Date();
   const thisWeekMonday = startOfWeek(today, { weekStartsOn: 1 });
@@ -25,8 +25,7 @@ function getNextWeekStart(): Date {
 
 export default function StaffSearchView() {
   const [allStaff, setAllStaff] = useState<Staff[]>([]);
-  const [filteredStaffList, setFilteredStaffList] = useState<Staff[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [staffWithData, setStaffWithData] = useState<{[staffId: number]: {available: Set<string>, scheduled: Set<string>}}>({}); 
   const [selectedStaffId, setSelectedStaffId] = useState<number | null>(null);
   const [schedule, setSchedule] = useState<StaffSchedule | null>(null);
   const [loading, setLoading] = useState(false);
@@ -34,13 +33,18 @@ export default function StaffSearchView() {
   const [saving, setSaving] = useState(false);
   const scheduleRef = useRef<HTMLDivElement>(null);
 
+  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
+  const weekDays = eachDayOfInterval({
+    start: weekStart,
+    end: addDays(weekStart, 6),
+  });
+
   useEffect(() => {
     loadAllStaff();
   }, []);
 
-  // Filter staff by current week when week changes
   useEffect(() => {
-    filterStaffByWeek();
+    loadWeekData();
   }, [currentWeek, allStaff]);
 
   const loadAllStaff = async () => {
@@ -53,53 +57,61 @@ export default function StaffSearchView() {
       }
     } catch (error) {
       console.error('Error loading staff:', error);
-      alert('載入員工名單失敗');
     }
   };
 
-  const filterStaffByWeek = async () => {
+  const loadWeekData = async () => {
     if (allStaff.length === 0) return;
 
-    const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
-    const weekDays = eachDayOfInterval({
-      start: weekStart,
-      end: addDays(weekStart, 6),
+    const dataMap: {[staffId: number]: {available: Set<string>, scheduled: Set<string>}} = {};
+    
+    // Initialize all staff
+    allStaff.forEach(staff => {
+      dataMap[staff.id] = {
+        available: new Set(),
+        scheduled: new Set(),
+      };
     });
-    const weekDatesStr = weekDays.map(d => format(d, 'yyyy-MM-dd'));
 
-    // Get staff who have availability OR scheduled dates in this week
-    const staffInThisWeek = new Set<number>();
-
-    // Check availability for each date in the week
-    for (const dateStr of weekDatesStr) {
+    // Load availability and roster for each date
+    for (const day of weekDays) {
+      const dateStr = format(day, 'yyyy-MM-dd');
+      
+      // Load availability
       try {
         const response = await fetch(`/api/availability/${dateStr}`);
         const data = await response.json();
         if (data.success) {
-          data.staff.forEach((s: Staff) => staffInThisWeek.add(s.id));
+          data.staff.forEach((s: Staff) => {
+            if (dataMap[s.id]) {
+              dataMap[s.id].available.add(dateStr);
+            }
+          });
         }
       } catch (error) {
-        // Ignore errors
+        // Ignore
       }
 
-      // Also check roster
+      // Load roster
       try {
         const response = await fetch(`/api/roster/${dateStr}`);
         const data = await response.json();
         if (data.success) {
-          data.roster.forEach((s: Staff) => staffInThisWeek.add(s.id));
+          data.roster.forEach((s: Staff) => {
+            if (dataMap[s.id]) {
+              dataMap[s.id].scheduled.add(dateStr);
+            }
+          });
         }
       } catch (error) {
-        // Ignore errors
+        // Ignore
       }
     }
 
-    // Filter staff list to only those in this week
-    const filtered = allStaff.filter(staff => staffInThisWeek.has(staff.id));
-    setFilteredStaffList(filtered);
+    setStaffWithData(dataMap);
   };
 
-  const handleStaffSelect = async (staffId: number) => {
+  const handleStaffClick = async (staffId: number) => {
     setSelectedStaffId(staffId);
     setLoading(true);
     setSchedule(null);
@@ -115,41 +127,27 @@ export default function StaffSearchView() {
           availableDates: data.staff.availableDates || [],
         };
         setSchedule(scheduleData);
-      } else {
-        alert(`Failed to load schedule: ${data.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error loading schedule:', error);
-      alert('Failed to load schedule');
     } finally {
       setLoading(false);
     }
   };
-
-  const [showImageModal, setShowImageModal] = useState(false);
-  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
 
   const handleSaveAsPhoto = async () => {
     if (!scheduleRef.current || !schedule) return;
 
     setSaving(true);
     try {
-      // Clone the schedule card and remove elements we don't want in the photo
       const clone = scheduleRef.current.cloneNode(true) as HTMLElement;
       
-      // Remove available dates section
       const availableSection = clone.querySelector('.availableSection');
-      if (availableSection) {
-        availableSection.remove();
-      }
+      if (availableSection) availableSection.remove();
       
-      // Remove phone number footer
       const phoneFooter = clone.querySelector('.cardFooter');
-      if (phoneFooter) {
-        phoneFooter.remove();
-      }
+      if (phoneFooter) phoneFooter.remove();
       
-      // Temporarily add clone to DOM for html2canvas
       clone.style.position = 'absolute';
       clone.style.left = '-9999px';
       document.body.appendChild(clone);
@@ -159,10 +157,8 @@ export default function StaffSearchView() {
         scale: 2,
       });
 
-      // Remove clone
       document.body.removeChild(clone);
 
-      // Convert to data URL for display
       const dataUrl = canvas.toDataURL('image/png');
       setImageDataUrl(dataUrl);
       setShowImageModal(true);
@@ -170,35 +166,26 @@ export default function StaffSearchView() {
       setSaving(false);
     } catch (error) {
       console.error('Error saving photo:', error);
-      alert('Failed to save as photo');
+      alert('儲存圖片失敗');
       setSaving(false);
     }
   };
 
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+
   const nextWeek = () => {
     setCurrentWeek(addWeeks(currentWeek, 1));
-    setSelectedStaffId(null);
-    setSchedule(null);
   };
 
   const prevWeek = () => {
     setCurrentWeek(addWeeks(currentWeek, -1));
-    setSelectedStaffId(null);
-    setSchedule(null);
   };
 
   const goToNextWeek = () => {
     setCurrentWeek(getNextWeekStart());
-    setSelectedStaffId(null);
-    setSchedule(null);
   };
 
-  // Filter dates for current week
-  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
-  const weekDays = eachDayOfInterval({
-    start: weekStart,
-    end: addDays(weekStart, 6),
-  });
   const weekDatesStr = weekDays.map(d => format(d, 'yyyy-MM-dd'));
 
   const scheduledThisWeek = schedule?.scheduledDates.filter(date => 
@@ -209,21 +196,22 @@ export default function StaffSearchView() {
     weekDatesStr.includes(date)
   ) || [];
 
-  // Filter by search term
-  const displayedStaff = filteredStaffList.filter(staff =>
-    staff.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    staff.phone?.includes(searchTerm)
-  );
+  // Filter staff who have any data this week
+  const staffInWeek = allStaff.filter(staff => {
+    const data = staffWithData[staff.id];
+    return data && (data.available.size > 0 || data.scheduled.size > 0);
+  });
 
   return (
     <div className={styles.container}>
-      {/* Week Selection - Same as Roster Planning */}
+      {/* Week Navigation */}
       <div className={styles.weekNav}>
         <button onClick={prevWeek} className={styles.navButton}>←</button>
         <div className={styles.weekInfo}>
           <div className={styles.weekRange}>
             {format(weekStart, 'MMM d')} - {format(addDays(weekStart, 6), 'MMM d, yyyy')}
           </div>
+          <div className={styles.staffCount}>{staffInWeek.length} 位員工</div>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           {!isSameDay(weekStart, getNextWeekStart()) && (
@@ -233,136 +221,157 @@ export default function StaffSearchView() {
         </div>
       </div>
 
-      {/* Staff Selection Section */}
-      <div className={styles.searchSection}>
-        <h2 className={styles.sectionTitle}>選擇員工 ({filteredStaffList.length})</h2>
+      {/* Weekly Overview Table */}
+      <div className={styles.tableSection}>
+        <h2 className={styles.sectionTitle}>本週員工時間表</h2>
         
-        {/* Search Box */}
-        <input
-          type="text"
-          placeholder="🔍 搜尋姓名或電話..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className={styles.searchInput}
-        />
-
-        {/* Staff Grid - Better Layout for 20+ staff */}
-        <div className={styles.staffGrid}>
-          {filteredStaffList.length === 0 ? (
-            <div className={styles.noResults}>本週沒有員工報更或被分配</div>
-          ) : displayedStaff.length === 0 ? (
-            <div className={styles.noResults}>找不到員工</div>
-          ) : (
-            displayedStaff.map((staff) => (
-              <button
-                key={staff.id}
-                onClick={() => handleStaffSelect(staff.id)}
-                className={`${styles.staffCard} ${selectedStaffId === staff.id ? styles.selected : ''}`}
-              >
-                <div className={styles.staffName}>{staff.name}</div>
-                {staff.phone && (
-                  <div className={styles.staffPhone}>{staff.phone}</div>
-                )}
-              </button>
-            ))
-          )}
-        </div>
-        
-        {searchTerm && (
-          <div className={styles.staffCount}>
-            顯示 {displayedStaff.length} / {filteredStaffList.length} 位員工
+        {staffInWeek.length === 0 ? (
+          <div className={styles.emptyMessage}>本週沒有員工報更或被分配</div>
+        ) : (
+          <div className={styles.tableWrapper}>
+            <table className={styles.weekTable}>
+              <thead>
+                <tr>
+                  <th className={styles.nameHeader}>員工</th>
+                  {weekDays.map((day) => (
+                    <th key={format(day, 'yyyy-MM-dd')} className={styles.dateHeader}>
+                      <div className={styles.dayName}>{format(day, 'EEE')}</div>
+                      <div className={styles.dayDate}>{format(day, 'MMM d')}</div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {staffInWeek.map((staff) => {
+                  const data = staffWithData[staff.id];
+                  return (
+                    <tr key={staff.id}>
+                      <td className={styles.nameCell}>
+                        <button 
+                          onClick={() => handleStaffClick(staff.id)}
+                          className={styles.staffNameButton}
+                        >
+                          {staff.name}
+                        </button>
+                      </td>
+                      {weekDays.map((day) => {
+                        const dateStr = format(day, 'yyyy-MM-dd');
+                        const isScheduled = data?.scheduled.has(dateStr);
+                        const isAvailable = data?.available.has(dateStr);
+                        
+                        return (
+                          <td key={dateStr} className={styles.statusCell}>
+                            {isScheduled && (
+                              <div className={styles.scheduledIcon}>✓</div>
+                            )}
+                            {isAvailable && !isScheduled && (
+                              <div className={styles.availableIcon}>○</div>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
+
+        {/* Legend */}
+        <div className={styles.legend}>
+          <div className={styles.legendItem}>
+            <div className={styles.scheduledIcon}>✓</div>
+            <span>已安排工作</span>
+          </div>
+          <div className={styles.legendItem}>
+            <div className={styles.availableIcon}>○</div>
+            <span>可工作</span>
+          </div>
+        </div>
       </div>
 
-      {/* Schedule Section - Week-by-Week View */}
-      {selectedStaffId && (
-        <div className={styles.scheduleSection}>
-          {loading ? (
-            <div className={styles.loading}>載入時間表中...</div>
-          ) : schedule ? (
-            <>
+      {/* Staff Detail Modal (existing detail view) */}
+      {selectedStaffId && schedule && (
+        <div className={styles.detailModal} onClick={() => setSelectedStaffId(null)}>
+          <div className={styles.detailContent} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.detailHeader}>
+              <h2>{schedule.name} 的時間表</h2>
+              <button onClick={() => setSelectedStaffId(null)} className={styles.closeButton}>×</button>
+            </div>
 
-              {/* Schedule Card - Ready for Screenshot */}
-              <div ref={scheduleRef} className={styles.scheduleCard}>
-                <div className={styles.cardHeader}>
-                  <h2 className={styles.staffTitle}>{schedule.name}</h2>
-                  <div className={styles.weekLabel}>
-                    {format(weekStart, 'MMM d')} - {format(addDays(weekStart, 6), 'MMM d, yyyy')}
-                  </div>
-                </div>
-
-                {/* Scheduled Dates for This Week */}
-                <div className={styles.scheduleGroup}>
-                  <h3 className={styles.groupTitle}>
-                    🗓️ 已安排工作 ({scheduledThisWeek.length})
-                  </h3>
-                  {scheduledThisWeek.length > 0 ? (
-                    <div className={styles.dateList}>
-                      {scheduledThisWeek.map((date) => (
-                        <div key={date} className={styles.scheduledBadge}>
-                          {format(parseISO(date), 'EEE, MMM d')}
-                        </div>
-                      ))}
+            {loading ? (
+              <div className={styles.loading}>載入中...</div>
+            ) : (
+              <>
+                <div ref={scheduleRef} className={styles.scheduleCard}>
+                  <div className={styles.cardHeader}>
+                    <h3 className={styles.staffTitle}>{schedule.name}</h3>
+                    <div className={styles.weekLabel}>
+                      {format(weekStart, 'MMM d')} - {format(addDays(weekStart, 6), 'MMM d, yyyy')}
                     </div>
-                  ) : (
-                    <div className={styles.emptyMessage}>本週沒有安排工作日期</div>
+                  </div>
+
+                  <div className={styles.scheduleGroup}>
+                    <h4 className={styles.groupTitle}>🗓️ 已安排工作 ({scheduledThisWeek.length})</h4>
+                    {scheduledThisWeek.length > 0 ? (
+                      <div className={styles.dateList}>
+                        {scheduledThisWeek.map((date) => (
+                          <div key={date} className={styles.scheduledBadge}>
+                            {format(parseISO(date), 'EEE, MMM d')}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className={styles.emptyMessage}>本週沒有安排工作日期</div>
+                    )}
+                  </div>
+
+                  <div className={`${styles.scheduleGroup} availableSection`}>
+                    <h4 className={styles.groupTitle}>✅ 可工作 ({availableThisWeek.length})</h4>
+                    {availableThisWeek.length > 0 ? (
+                      <div className={styles.dateList}>
+                        {availableThisWeek.map((date) => (
+                          <div key={date} className={styles.availableBadge}>
+                            {format(parseISO(date), 'EEE, MMM d')}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className={styles.emptyMessage}>本週沒有可工作日期</div>
+                    )}
+                  </div>
+
+                  {schedule.phone && (
+                    <div className={`${styles.cardFooter} cardFooter`}>
+                      📱 {schedule.phone}
+                    </div>
                   )}
                 </div>
 
-                {/* Available Dates - Show on web, hidden in photo */}
-                <div className={`${styles.scheduleGroup} availableSection`}>
-                  <h3 className={styles.groupTitle}>
-                    ✅ 可工作 ({availableThisWeek.length})
-                  </h3>
-                  {availableThisWeek.length > 0 ? (
-                    <div className={styles.dateList}>
-                      {availableThisWeek.map((date) => (
-                        <div key={date} className={styles.availableBadge}>
-                          {format(parseISO(date), 'EEE, MMM d')}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className={styles.emptyMessage}>本週沒有可工作日期</div>
-                  )}
-                </div>
-
-                {/* Footer with Contact Info - Show on web, hidden in photo */}
-                {schedule.phone && (
-                  <div className={`${styles.cardFooter} cardFooter`}>
-                    📱 {schedule.phone}
-                  </div>
-                )}
-              </div>
-
-              {/* Save as Photo Button */}
-              <button
-                onClick={handleSaveAsPhoto}
-                disabled={saving}
-                className={styles.savePhotoButton}
-              >
-                {saving ? '⏳ 儲存中...' : '📸 儲存為圖片'}
-              </button>
-              <p className={styles.hint}>
-                點擊建立圖片，然後長按圖片並儲存到相簿
-              </p>
-            </>
-          ) : (
-            <div className={styles.emptyMessage}>選擇員工以查看其時間表</div>
-          )}
+                <button
+                  onClick={handleSaveAsPhoto}
+                  disabled={saving}
+                  className={styles.savePhotoButton}
+                >
+                  {saving ? '⏳ 儲存中...' : '📸 儲存為圖片'}
+                </button>
+                <p className={styles.hint}>
+                  點擊建立圖片，然後長按圖片並儲存到相簿
+                </p>
+              </>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Image Modal for iPhone - Long Press to Save */}
+      {/* Image Modal for iPhone */}
       {showImageModal && imageDataUrl && (
         <div className={styles.imageModal} onClick={() => setShowImageModal(false)}>
           <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
               <h3>📸 員工時間表</h3>
-              <button onClick={() => setShowImageModal(false)} className={styles.closeButton}>
-                ✕
-              </button>
+              <button onClick={() => setShowImageModal(false)} className={styles.closeButton}>✕</button>
             </div>
             
             <div className={styles.imageContainer}>

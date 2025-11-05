@@ -5,7 +5,7 @@
   padding-bottom: 2rem;
 }
 
-/* Week Navigation - Same as Calendar */
+/* Week Navigation */
 .weekNav {
   display: flex;
   align-items: center;
@@ -14,7 +14,6 @@
   padding: 1rem;
   border-radius: 12px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: 1rem;
   gap: 0.5rem;
 }
 
@@ -69,8 +68,14 @@
   color: #333;
 }
 
-/* Search Section */
-.searchSection {
+.staffCount {
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 0.25rem;
+}
+
+/* Table Section */
+.tableSection {
   background: white;
   border-radius: 12px;
   padding: 1rem;
@@ -84,165 +89,220 @@
   margin-bottom: 1rem;
 }
 
-.searchInput {
-  width: 100%;
-  padding: 0.875rem 1rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 10px;
-  font-size: 1rem;
-  margin-bottom: 1rem;
-  transition: border-color 0.2s;
-}
-
-.searchInput:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
-/* Staff Grid - Optimized for 20+ staff */
-.staffGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 0.75rem;
-  max-height: 400px;
-  overflow-y: auto;
-  padding: 0.5rem;
+.emptyMessage {
+  text-align: center;
+  color: #999;
+  padding: 3rem 1rem;
+  font-style: italic;
+  background: #f8f9fa;
   border-radius: 8px;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.weekTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 600px;
+}
+
+.weekTable thead {
+  background: #667eea;
+  color: white;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.nameHeader {
+  text-align: left;
+  padding: 1rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  min-width: 120px;
+  position: sticky;
+  left: 0;
+  background: #667eea;
+  z-index: 11;
+}
+
+.dateHeader {
+  text-align: center;
+  padding: 0.75rem 0.5rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  min-width: 70px;
+}
+
+.dayName {
+  font-size: 0.75rem;
+  opacity: 0.9;
+}
+
+.dayDate {
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+}
+
+.weekTable tbody tr {
+  border-bottom: 1px solid #e0e0e0;
+  transition: background 0.2s;
+}
+
+.weekTable tbody tr:hover {
   background: #f8f9fa;
 }
 
-.staffCard {
+.weekTable tbody tr:last-child {
+  border-bottom: none;
+}
+
+.nameCell {
+  padding: 0;
+  position: sticky;
+  left: 0;
   background: white;
-  border: 2px solid #e0e0e0;
-  border-radius: 10px;
-  padding: 1rem 0.75rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: center;
-  min-height: 70px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 0.25rem;
+  z-index: 1;
 }
 
-.staffCard:active {
-  transform: scale(0.98);
+.weekTable tbody tr:hover .nameCell {
+  background: #f8f9fa;
 }
 
-.staffCard.selected {
-  background: #667eea;
-  border-color: #667eea;
-  color: white;
-}
-
-.staffName {
+.staffNameButton {
+  width: 100%;
+  text-align: left;
+  padding: 1rem;
+  background: transparent;
+  border: none;
+  color: #667eea;
   font-weight: 600;
   font-size: 0.95rem;
+  cursor: pointer;
+  transition: color 0.2s;
 }
 
-.staffCard.selected .staffName {
+.staffNameButton:active {
+  color: #5568d3;
+}
+
+.statusCell {
+  text-align: center;
+  padding: 0.75rem 0.5rem;
+  min-width: 70px;
+}
+
+.scheduledIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: #667eea;
   color: white;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 1.1rem;
 }
 
-.staffPhone {
-  font-size: 0.75rem;
+.availableIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 2px solid #28a745;
+  color: #28a745;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+/* Legend */
+.legend {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
   color: #666;
 }
 
-.staffCard.selected .staffPhone {
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.staffCount {
-  text-align: center;
-  color: #999;
-  font-size: 0.85rem;
-  margin-top: 0.5rem;
-}
-
-.noResults {
-  text-align: center;
-  color: #999;
-  padding: 2rem;
-  font-style: italic;
-}
-
-/* Schedule Section */
-.scheduleSection {
-  background: white;
-  border-radius: 12px;
-  padding: 1rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-/* Week Navigation */
-.weekNav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1rem;
-  gap: 0.5rem;
-}
-
-.navButton {
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  background: #667eea;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 1.25rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s;
+/* Detail Modal - Full Screen */
+.detailModal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 1rem;
 }
 
-.navButton:active {
-  background: #5568d3;
-  transform: scale(0.95);
+.detailContent {
+  background: white;
+  border-radius: 16px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 1.5rem;
 }
 
-.weekInfo {
-  flex: 1;
-  text-align: center;
+.detailHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e0e0e0;
 }
 
-.weekRange {
-  font-size: 1.1rem;
+.detailHeader h2 {
+  font-size: 1.25rem;
   font-weight: 700;
   color: #333;
-  margin-bottom: 0.25rem;
+  margin: 0;
 }
 
-.todayButton {
-  background: transparent;
-  border: 1px solid #667eea;
-  color: #667eea;
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
+.closeButton {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #f0f0f0;
+  border: none;
+  font-size: 1.5rem;
+  color: #666;
   cursor: pointer;
-  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
 }
 
-.todayButton:active {
-  background: #667eea;
-  color: white;
+.closeButton:active {
+  background: #e0e0e0;
 }
 
-/* Schedule Card - Designed for Screenshot */
+/* Schedule Card */
 .scheduleCard {
-  background: white;
-  border-radius: 12px;
-  padding: 1.5rem;
   margin-bottom: 1rem;
-  border: 2px solid #e0e0e0;
 }
 
 .cardHeader {
@@ -256,7 +316,7 @@
   font-size: 1.5rem;
   font-weight: 700;
   color: #333;
-  margin-bottom: 0.5rem;
+  margin: 0 0 0.5rem 0;
 }
 
 .weekLabel {
@@ -269,16 +329,11 @@
   margin-bottom: 1.5rem;
 }
 
-.scheduleGroup:last-of-type {
-  margin-bottom: 0;
-}
-
 .groupTitle {
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #555;
   margin-bottom: 0.75rem;
-  padding-left: 0.25rem;
 }
 
 .dateList {
@@ -287,34 +342,23 @@
   gap: 0.5rem;
 }
 
-.scheduledBadge,
-.availableBadge {
+.scheduledBadge {
   padding: 0.75rem 1rem;
   border-radius: 8px;
   font-weight: 600;
   font-size: 0.9rem;
-  text-align: center;
-  min-width: 120px;
-}
-
-.scheduledBadge {
   background: #667eea;
   color: white;
 }
 
 .availableBadge {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
   background: #e8f5e9;
   color: #2e7d32;
   border: 1px solid #c8e6c9;
-}
-
-.emptyMessage {
-  text-align: center;
-  color: #999;
-  padding: 1.5rem;
-  font-style: italic;
-  background: #f8f9fa;
-  border-radius: 8px;
 }
 
 .cardFooter {
@@ -326,7 +370,6 @@
   font-weight: 600;
 }
 
-/* Save Photo Button */
 .savePhotoButton {
   width: 100%;
   padding: 1rem;
@@ -355,11 +398,16 @@
   text-align: center;
   color: #999;
   font-size: 0.85rem;
+  margin: 0;
 }
 
-/* Available section is visible on web, hidden when captured (via JS clone removal) */
+.loading {
+  text-align: center;
+  padding: 2rem;
+  color: #999;
+}
 
-/* Image Modal for iPhone Save */
+/* Image Modal */
 .imageModal {
   position: fixed;
   top: 0;
@@ -398,25 +446,6 @@
   font-weight: 700;
   color: #333;
   margin: 0;
-}
-
-.closeButton {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #f0f0f0;
-  border: none;
-  font-size: 1.25rem;
-  color: #666;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-}
-
-.closeButton:active {
-  background: #e0e0e0;
 }
 
 .imageContainer {
@@ -469,31 +498,35 @@
   background: #5568d3;
 }
 
-.loading {
-  text-align: center;
-  padding: 3rem;
-  color: #999;
-  font-size: 1.1rem;
-}
-
-/* Mobile Optimizations */
+/* Mobile adjustments */
 @media (max-width: 768px) {
-  .staffGrid {
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    gap: 0.6rem;
-    max-height: 350px;
+  .weekTable {
+    font-size: 0.85rem;
   }
-
-  .staffCard {
-    padding: 0.75rem 0.5rem;
-    min-height: 60px;
+  
+  .nameHeader,
+  .staffNameButton {
+    font-size: 0.85rem;
   }
-
-  .staffName {
-    font-size: 0.9rem;
+  
+  .dateHeader {
+    font-size: 0.75rem;
+    padding: 0.5rem 0.25rem;
+    min-width: 60px;
   }
-
-  .staffPhone {
+  
+  .dayName {
     font-size: 0.7rem;
+  }
+  
+  .dayDate {
+    font-size: 0.8rem;
+  }
+  
+  .scheduledIcon,
+  .availableIcon {
+    width: 28px;
+    height: 28px;
+    font-size: 1rem;
   }
 }
