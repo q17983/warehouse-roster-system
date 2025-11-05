@@ -60,6 +60,54 @@ export default function StaffSearchView() {
     }
   };
 
+  const handleCellClick = async (staffId: number, date: string, isScheduled: boolean, isAvailable: boolean) => {
+    // If scheduled, unassign (remove from roster)
+    // If available but not scheduled, assign (add to roster)
+    // If neither, do nothing (can't assign someone who's not available)
+    
+    if (!isAvailable && !isScheduled) {
+      alert('此員工在這天不可工作');
+      return;
+    }
+
+    try {
+      if (isScheduled) {
+        // Unassign - remove from roster
+        const response = await fetch(`/api/roster/${date}`);
+        const data = await response.json();
+        if (data.success) {
+          const remainingStaffIds = data.roster
+            .filter((s: any) => s.id !== staffId)
+            .map((s: any) => s.id);
+          
+          await fetch(`/api/roster/${date}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ staffIds: remainingStaffIds }),
+          });
+        }
+      } else {
+        // Assign - add to roster
+        const response = await fetch(`/api/roster/${date}`);
+        const data = await response.json();
+        if (data.success) {
+          const existingStaffIds = data.roster.map((s: any) => s.id);
+          await fetch(`/api/roster/${date}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ staffIds: [...existingStaffIds, staffId] }),
+          });
+        }
+      }
+      
+      // Reload week data to show changes
+      await loadWeekData();
+    } catch (error) {
+      console.error('Error updating assignment:', error);
+      alert('更新失敗');
+    }
+  };
+
   const loadWeekData = async () => {
     if (allStaff.length === 0) return;
 
@@ -260,7 +308,11 @@ export default function StaffSearchView() {
                         const isAvailable = data?.available.has(dateStr);
                         
                         return (
-                          <td key={dateStr} className={styles.statusCell}>
+                          <td 
+                            key={dateStr} 
+                            className={`${styles.statusCell} ${(isScheduled || isAvailable) ? styles.clickable : ''}`}
+                            onClick={() => (isScheduled || isAvailable) && handleCellClick(staff.id, dateStr, isScheduled, isAvailable)}
+                          >
                             {isScheduled && (
                               <div className={styles.scheduledIcon}>✓</div>
                             )}

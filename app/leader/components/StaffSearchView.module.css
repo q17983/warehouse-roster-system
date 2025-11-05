@@ -194,6 +194,19 @@
   text-align: center;
   padding: 0.75rem 0.5rem;
   min-width: 70px;
+  transition: background 0.2s;
+}
+
+.statusCell.clickable {
+  cursor: pointer;
+}
+
+.statusCell.clickable:hover {
+  background: #f0f4ff;
+}
+
+.statusCell.clickable:active {
+  background: #e0e8ff;
 }
 
 .scheduledIcon {
@@ -207,6 +220,11 @@
   border-radius: 50%;
   font-weight: 700;
   font-size: 1.1rem;
+  transition: all 0.2s;
+}
+
+.clickable:active .scheduledIcon {
+  transform: scale(0.9);
 }
 
 .availableIcon {
@@ -220,13 +238,18 @@
   border-radius: 50%;
   font-weight: 700;
   font-size: 1.2rem;
+  transition: all 0.2s;
+}
+
+.clickable:active .availableIcon {
+  transform: scale(0.9);
 }
 
 /* Legend */
 .legend {
   display: flex;
-  justify-content: center;
-  gap: 2rem;
+  flex-direction: column;
+  gap: 0.75rem;
   padding: 1rem;
   background: #f8f9fa;
   border-radius: 8px;
@@ -236,8 +259,18 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: #666;
+}
+
+.legend::before {
+  content: '💡 點擊 ✓ 或 ○ 來分配/取消分配員工';
+  display: block;
+  font-weight: 600;
+  color: #667eea;
+  text-align: center;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
 }
 
 /* Detail Modal - Full Screen */
