@@ -127,39 +127,41 @@ export default function StaffSearchView() {
       };
     });
 
-    // Load availability and roster for each date
-    for (const day of weekDays) {
-      const dateStr = format(day, 'yyyy-MM-dd');
+    // Get all week data in ONE API call (much faster!)
+    const dates = weekDays.map(d => format(d, 'yyyy-MM-dd'));
+    
+    try {
+      const response = await fetch('/api/week-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dates }),
+      });
       
-      // Load availability
-      try {
-        const response = await fetch(`/api/availability/${dateStr}`);
-        const data = await response.json();
-        if (data.success) {
-          data.staff.forEach((s: Staff) => {
-            if (dataMap[s.id]) {
-              dataMap[s.id].available.add(dateStr);
+      const data = await response.json();
+      
+      if (data.success) {
+        const { availability, roster } = data.weekData;
+        
+        // Process availability data
+        Object.entries(availability).forEach(([date, staffIds]) => {
+          (staffIds as number[]).forEach(staffId => {
+            if (dataMap[staffId]) {
+              dataMap[staffId].available.add(date);
             }
           });
-        }
-      } catch (error) {
-        // Ignore
-      }
-
-      // Load roster
-      try {
-        const response = await fetch(`/api/roster/${dateStr}`);
-        const data = await response.json();
-        if (data.success) {
-          data.roster.forEach((s: Staff) => {
-            if (dataMap[s.id]) {
-              dataMap[s.id].scheduled.add(dateStr);
+        });
+        
+        // Process roster data
+        Object.entries(roster).forEach(([date, staffIds]) => {
+          (staffIds as number[]).forEach(staffId => {
+            if (dataMap[staffId]) {
+              dataMap[staffId].scheduled.add(date);
             }
           });
-        }
-      } catch (error) {
-        // Ignore
+        });
       }
+    } catch (error) {
+      console.error('Error loading week data:', error);
     }
 
     setStaffWithData(dataMap);
